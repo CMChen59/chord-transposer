@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>🎹 智慧和弦轉調與組成音查詢工作站 (Chord Transposer & Voicing Studio)</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+  <!-- 頂部全域導覽與調性控制列 -->
+  <header class="app-header">
+    <div class="header-inner">
+      <div class="brand-title">
+        <span style="font-size: 1.9rem;">🎹</span>
+        <div>
+          <h1>智慧和弦轉調與組成音查詢工作站</h1>
+          <div class="brand-subtitle">支援電子琴簡譜方框級數 (6m, 37-9+5, 5m6/7b) ＆ 英文字母和弦 (CM7, bE) 雙向轉調與鋼琴視覺化</div>
+        </div>
+      </div>
+
+      <div class="global-controls">
+        <!-- 原調選擇 -->
+        <div class="control-group">
+          <label for="sourceKeySelect">原譜調性：</label>
+          <select id="sourceKeySelect"></select>
+        </div>
+
+        <!-- 目標調選擇與半音微調 -->
+        <div class="control-group">
+          <label for="targetKeySelect">目標調性：</label>
+          <select id="targetKeySelect"></select>
+          <button type="button" id="btnSemitoneDown" class="btn" title="目標調降半音 (-1)">-1 半音</button>
+          <button type="button" id="btnSemitoneReset" class="btn" title="重置為原譜調性">原調</button>
+          <button type="button" id="btnSemitoneUp" class="btn" title="目標調升半音 (+1)">+1 半音</button>
+        </div>
+
+        <!-- 三種顯示模式一鍵切換 -->
+        <div class="mode-switcher" role="group" aria-label="和弦顯示模式切換">
+          <button type="button" class="mode-btn active" data-mode="english" title="日常看譜與電子琴螢幕顯示最直覺">🔤 英文和弦 (預設)</button>
+          <button type="button" class="mode-btn" data-mode="number" title="以固定調 1=C 簡譜數字顯示 (如 1m, 4m, 57)">🔢 固定調數字</button>
+          <button type="button" class="mode-btn" data-mode="practice" title="同時顯示原譜級數與新調英文/數字，幫助記憶轉調規律">🎓 練功對照</button>
+        </div>
+
+        <!-- 琴音開關 -->
+        <button type="button" id="btnAudioToggle" class="btn btn-emerald">🔊 琴音試聽：開啟</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="main-container">
+
+    <!-- 區塊 1：新調性升降記號 (黑鍵提示)、自然音階與小調導音提示橫幅 -->
+    <section id="keySignatureBanner" class="key-signature-banner" aria-label="新調性升降記號與音階資訊">
+      <!-- 由 js/app.js 動態渲染 -->
+    </section>
+
+    <!-- 區塊 2：單一和弦即時查詢與 3 八度互動式鋼琴鍵盤工作台 -->
+    <section class="card">
+      <div class="card-header">
+        <div class="card-title">
+          <span>🎹</span>
+          <span>和弦組成音與互動式鋼琴鍵盤 (點擊下方任一和弦卡或直接輸入皆可即時顯示)</span>
+        </div>
+        <div style="font-size: 0.84rem; color: #94a3b8;">
+          💡 點擊鋼琴上的任何琴鍵皆可單獨發聲試聽
+        </div>
+      </div>
+
+      <div class="voicing-studio-grid">
+        <!-- 左側：和弦輸入與組成音雙語明細卡 -->
+        <div class="chord-lookup-panel">
+          <div>
+            <label for="chordLookupInput" style="font-size: 0.82rem; font-weight: 700; color: #94a3b8; display: block; margin-bottom: 6px;">
+              🔍 輸入原譜和弦 (支援英文 `Cm`, `bE` 或簡譜級數 `6m`, `37-9+5`, `5m6/7b`)：
+            </label>
+            <div class="lookup-input-row">
+              <input type="text" id="chordLookupInput" value="6m" placeholder="例如: 6m, 37-9+5, 5m6/7b, CM7, bE..." />
+              <button type="button" id="btnPlayCurrentChord" class="btn btn-primary">🔊 彈奏和弦</button>
+            </div>
+          </div>
+
+          <div>
+            <div style="font-size: 0.76rem; color: #94a3b8; margin-bottom: 6px; font-weight: 600;">⚡ 點擊快速測試範例特殊和弦：</div>
+            <div id="quickChordChips" class="quick-chord-chips"></div>
+          </div>
+
+          <div id="voicingDetailBox" class="voicing-detail-box">
+            <!-- 由 js/app.js 動態渲染組成音明細 -->
+          </div>
+        </div>
+
+        <!-- 右側：3 八度 SVG 互動式鋼琴鍵盤 -->
+        <div>
+          <div id="pianoContainer" class="piano-stage">
+            <!-- 由 js/piano-visualizer.js 動態渲染 SVG 鋼琴 -->
+          </div>
+          <div class="piano-hint-bar">
+            <div class="legend-items">
+              <span><i class="legend-dot" style="background: #f59e0b;"></i>左手低音 / 轉位 Bass (C3~B3)</span>
+              <span><i class="legend-dot" style="background: #3b82f6;"></i>右手和弦根音 Root (1)</span>
+              <span><i class="legend-dot" style="background: #10b981;"></i>右手和弦組成音 (3, 5, 7, 9...)</span>
+            </div>
+            <span>琴鍵上同時標示：<strong>英文音名</strong> ＋ <strong>(固定調簡譜數字)</strong> ＋ <strong>[音程角色]</strong></span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 區塊 3：整首和弦譜批次轉調工作區 (內建《償還》與《川の流れのように》實譜) -->
+    <section class="card">
+      <div class="card-header">
+        <div class="card-title">
+          <span>🎼</span>
+          <span>整首和弦譜批次轉調與互動點選區</span>
+        </div>
+        <div class="preset-toolbar">
+          <button type="button" id="btnPresetChangHuan" class="btn btn-amber">📄 載入範例 1：《償還》(方框級數譜 Am ➔ 女調 Cm / 男調 Fm)</button>
+          <button type="button" id="btnPresetKawa" class="btn btn-emerald">📄 載入範例 2：《川の流れのように》(紅色英文譜 C ➔ D調)</button>
+        </div>
+      </div>
+
+      <div class="sheet-transposer-layout">
+        <!-- 左側：原譜文字輸入/編輯區 -->
+        <div class="sheet-input-column">
+          <label for="sheetInputTextarea" style="font-size: 0.85rem; font-weight: 700; color: #94a3b8;">
+            ✏️ 原譜和弦輸入區 (以 `|` 分隔小節、以 `[段落名稱]` 標示段落，可自由修改或貼上新譜)：
+          </label>
+          <textarea id="sheetInputTextarea" class="sheet-textarea" spellcheck="false"></textarea>
+          <div style="font-size: 0.78rem; color: #64748b;">
+            提示：支援同小節多個和弦（以空白分隔，如 `6 67 67+5` 或 `7b 5m6/7b`），輸入後右側即時同步轉調。
+          </div>
+        </div>
+
+        <!-- 右側：轉調後互動小節卡片區 -->
+        <div class="sheet-output-column">
+          <div id="quickKeyPresetsBar" class="quick-key-presets">
+            <!-- 由 js/app.js 動態渲染曲目常用調性快捷按鈕 -->
+          </div>
+
+          <div id="transposedSheetOutput" style="display: flex; flex-direction: column; gap: 14px;">
+            <!-- 由 js/app.js 動態渲染轉調後的段落與小節和弦卡 -->
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- 核心樂理引擎、鋼琴視覺化模組與主程式 -->
+  <script src="js/music-theory.js"></script>
+  <script src="js/piano-visualizer.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
