@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>🎹 智慧和弦轉調與組成音查詢工作站 (Chord Transposer & Voicing Studio)</title>
+  <title>🎹 智慧和弦轉調與組成音查詢工具 (Chord Transposer & Voicing Studio)</title>
   <link rel="stylesheet" href="css/style.css" />
 </head>
 <body>
@@ -14,8 +14,8 @@
       <div class="brand-title">
         <span style="font-size: 1.9rem;">🎹</span>
         <div>
-          <h1>智慧和弦轉調與組成音查詢工作站</h1>
-          <div class="brand-subtitle">支援電子琴簡譜方框級數 (6m, 37-9+5, 5m6/7b) ＆ 英文字母和弦 (CM7, bE) 雙向轉調與鋼琴視覺化</div>
+          <h1>智慧和弦轉調與組成音查詢工具</h1>
+          <div class="brand-subtitle">選取原調與目標調，即刻提供對應和弦、新調升降記號與和弦組成音對照</div>
         </div>
       </div>
 
@@ -50,100 +50,188 @@
 
   <main class="main-container">
 
-    <!-- 區塊 1：新調性升降記號 (黑鍵提示)、自然音階與小調導音提示橫幅 -->
+    <!-- 共用橫幅：新調性升降記號 (黑鍵提示)、自然音階與小調導音提示 -->
     <section id="keySignatureBanner" class="key-signature-banner" aria-label="新調性升降記號與音階資訊">
       <!-- 由 js/app.js 動態渲染 -->
     </section>
 
-    <!-- 區塊 2：單一和弦即時查詢與 3 八度互動式鋼琴鍵盤工作台 -->
-    <section class="card">
-      <div class="card-header">
-        <div class="card-title">
-          <span>🎹</span>
-          <span>和弦組成音與互動式鋼琴鍵盤 (點擊下方任一和弦卡或直接輸入皆可即時顯示)</span>
-        </div>
-        <div style="font-size: 0.84rem; color: #94a3b8;">
-          💡 點擊鋼琴上的任何琴鍵皆可單獨發聲試聽
-        </div>
-      </div>
+    <!-- 檢視模式分頁切換列 (保留原本極簡查表需求 + 互動鋼琴工作台) -->
+    <nav class="view-tabs-nav" aria-label="功能模式切換">
+      <button type="button" class="view-tab-btn active" data-tab="tab-reference-table">
+        <span>📊</span>
+        <span>模式一：調性對應和弦 ＆ 組成音總表 (直覺查表)</span>
+      </button>
+      <button type="button" class="view-tab-btn" data-tab="tab-interactive-studio">
+        <span>🎹</span>
+        <span>模式二：互動鋼琴鍵盤 ＆ 整首和弦工作台 (進階練習)</span>
+      </button>
+    </nav>
 
-      <div class="voicing-studio-grid">
-        <!-- 左側：和弦輸入與組成音雙語明細卡 -->
-        <div class="chord-lookup-panel">
-          <div>
-            <label for="chordLookupInput" style="font-size: 0.82rem; font-weight: 700; color: #94a3b8; display: block; margin-bottom: 6px;">
-              🔍 輸入原譜和弦 (支援英文 `Cm`, `bE` 或簡譜級數 `6m`, `37-9+5`, `5m6/7b`)：
-            </label>
-            <div class="lookup-input-row">
-              <input type="text" id="chordLookupInput" value="6m" placeholder="例如: 6m, 37-9+5, 5m6/7b, CM7, bE..." />
-              <button type="button" id="btnPlayCurrentChord" class="btn btn-primary">🔊 彈奏和弦</button>
-            </div>
+    <!-- ====================================================================== -->
+    <!-- 分頁 1 (預設)：原調 ➔ 目標調 對應和弦與組成音總表 -->
+    <!-- ====================================================================== -->
+    <div id="tab-reference-table" class="tab-pane active">
+      <section class="card">
+        <div class="card-header">
+          <div class="card-title">
+            <span>📊</span>
+            <span id="refTableTitle">原調 ➔ 目標調 常用對應和弦與組成音對照總表</span>
           </div>
-
-          <div>
-            <div style="font-size: 0.76rem; color: #94a3b8; margin-bottom: 6px; font-weight: 600;">⚡ 點擊快速測試範例特殊和弦：</div>
-            <div id="quickChordChips" class="quick-chord-chips"></div>
-          </div>
-
-          <div id="voicingDetailBox" class="voicing-detail-box">
-            <!-- 由 js/app.js 動態渲染組成音明細 -->
+          <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+            <button type="button" class="btn btn-amber quick-pair-btn" data-src="Am" data-tgt="Cm">⚡ 常用：Am 轉女調 Cm</button>
+            <button type="button" class="btn btn-amber quick-pair-btn" data-src="Am" data-tgt="Fm">⚡ 常用：Am 轉男調 Fm</button>
+            <button type="button" class="btn btn-emerald quick-pair-btn" data-src="C" data-tgt="D">⚡ 常用：C 轉 D (+2)</button>
+            <button type="button" class="btn btn-emerald quick-pair-btn" data-src="C" data-tgt="Eb">⚡ 常用：C 轉 Eb (bE)</button>
           </div>
         </div>
 
-        <!-- 右側：3 八度 SVG 互動式鋼琴鍵盤 -->
-        <div>
-          <div id="pianoContainer" class="piano-stage">
-            <!-- 由 js/piano-visualizer.js 動態渲染 SVG 鋼琴 -->
-          </div>
-          <div class="piano-hint-bar">
-            <div class="legend-items">
-              <span><i class="legend-dot" style="background: #f59e0b;"></i>左手低音 / 轉位 Bass (C3~B3)</span>
-              <span><i class="legend-dot" style="background: #3b82f6;"></i>右手和弦根音 Root (1)</span>
-              <span><i class="legend-dot" style="background: #10b981;"></i>右手和弦組成音 (3, 5, 7, 9...)</span>
-            </div>
-            <span>琴鍵上同時標示：<strong>英文音名</strong> ＋ <strong>(固定調簡譜數字)</strong> ＋ <strong>[音程角色]</strong></span>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- 區塊 3：整首和弦譜批次轉調工作區 (內建《償還》與《川の流れのように》實譜) -->
-    <section class="card">
-      <div class="card-header">
-        <div class="card-title">
-          <span>🎼</span>
-          <span>整首和弦譜批次轉調與互動點選區</span>
-        </div>
-        <div class="preset-toolbar">
-          <button type="button" id="btnPresetChangHuan" class="btn btn-amber">📄 載入範例 1：《償還》(方框級數譜 Am ➔ 女調 Cm / 男調 Fm)</button>
-          <button type="button" id="btnPresetKawa" class="btn btn-emerald">📄 載入範例 2：《川の流れのように》(紅色英文譜 C ➔ D調)</button>
-        </div>
-      </div>
-
-      <div class="sheet-transposer-layout">
-        <!-- 左側：原譜文字輸入/編輯區 -->
-        <div class="sheet-input-column">
-          <label for="sheetInputTextarea" style="font-size: 0.85rem; font-weight: 700; color: #94a3b8;">
-            ✏️ 原譜和弦輸入區 (以 `|` 分隔小節、以 `[段落名稱]` 標示段落，可自由修改或貼上新譜)：
+        <!-- 單一特殊和弦即時換算列 (若遇到表上沒有的複雜和弦可隨時輸入) -->
+        <div class="quick-convert-bar" style="margin-bottom: 16px;">
+          <label for="quickSingleChordInput" style="font-weight: 800; color: #6ee7b7;">
+            🔍 特殊和弦快速換算：
           </label>
-          <textarea id="sheetInputTextarea" class="sheet-textarea" spellcheck="false"></textarea>
-          <div style="font-size: 0.78rem; color: #64748b;">
-            提示：支援同小節多個和弦（以空白分隔，如 `6 67 67+5` 或 `7b 5m6/7b`），輸入後右側即時同步轉調。
+          <input type="text" id="quickSingleChordInput" value="37-9+5" placeholder="輸入任意和弦，如 37-9+5, 5m6/7b, bE..." />
+          <div id="quickSingleChordResult" class="quick-convert-result">
+            <!-- 由 js/app.js 即時渲染 -->
           </div>
         </div>
 
-        <!-- 右側：轉調後互動小節卡片區 -->
-        <div class="sheet-output-column">
-          <div id="quickKeyPresetsBar" class="quick-key-presets">
-            <!-- 由 js/app.js 動態渲染曲目常用調性快捷按鈕 -->
+        <!-- 級數分類篩選列 -->
+        <div class="filter-toolbar" style="margin-bottom: 14px;">
+          <div class="degree-filter-btns" id="degreeFilterBtns">
+            <button type="button" class="btn btn-primary" data-filter="common">⭐ 樂譜最常用和弦 (精選 16 個)</button>
+            <button type="button" class="btn" data-filter="all">📋 全部 1~7 級完整家族 (28 個)</button>
+            <button type="button" class="btn" data-filter="1">1 級 (Do)</button>
+            <button type="button" class="btn" data-filter="2">2 級 (Re)</button>
+            <button type="button" class="btn" data-filter="3">3 級 (Mi)</button>
+            <button type="button" class="btn" data-filter="4">4 級 (Fa)</button>
+            <button type="button" class="btn" data-filter="5">5 級 (Sol)</button>
+            <button type="button" class="btn" data-filter="6">6 級 (La)</button>
+            <button type="button" class="btn" data-filter="7">7 級 / 降7 (Si)</button>
           </div>
-
-          <div id="transposedSheetOutput" style="display: flex; flex-direction: column; gap: 14px;">
-            <!-- 由 js/app.js 動態渲染轉調後的段落與小節和弦卡 -->
+          <div style="font-size: 0.82rem; color: #94a3b8;">
+            💡 點擊任一列的「🔊 試聽」或「🎹 看琴鍵」可聽和弦聲音或查看鋼琴按法
           </div>
         </div>
-      </div>
-    </section>
+
+        <!-- 對應和弦與組成音總表 -->
+        <div class="chord-ref-table-wrapper">
+          <table class="chord-ref-table">
+            <thead>
+              <tr>
+                <th>簡譜級數 (方框)</th>
+                <th>原調和弦 (<span id="thSourceKeyName">Am</span>)</th>
+                <th>➔ 目標調對應和弦 (<span id="thTargetKeyName">Cm</span>)</th>
+                <th>目標調和弦組成音 (英文音名)</th>
+                <th>目標調和弦組成音 (固定調數字)</th>
+                <th>和弦性質 / 用途說明</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody id="chordRefTableBody">
+              <!-- 由 js/app.js 自動根據原調與目標調計算渲染 -->
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+
+    <!-- ====================================================================== -->
+    <!-- 分頁 2 (完整保留)：互動鋼琴鍵盤 ＆ 整首和弦工作台 -->
+    <!-- ====================================================================== -->
+    <div id="tab-interactive-studio" class="tab-pane">
+
+      <!-- 單一和弦即時查詢與 3 八度互動式鋼琴鍵盤工作台 -->
+      <section class="card">
+        <div class="card-header">
+          <div class="card-title">
+            <span>🎹</span>
+            <span>和弦組成音與互動式鋼琴鍵盤 (點擊下方任一和弦卡或直接輸入皆可即時顯示)</span>
+          </div>
+          <div style="font-size: 0.84rem; color: #94a3b8;">
+            💡 點擊鋼琴上的任何琴鍵皆可單獨發聲試聽
+          </div>
+        </div>
+
+        <div class="voicing-studio-grid">
+          <!-- 左側：和弦輸入與組成音雙語明細卡 -->
+          <div class="chord-lookup-panel">
+            <div>
+              <label for="chordLookupInput" style="font-size: 0.82rem; font-weight: 700; color: #94a3b8; display: block; margin-bottom: 6px;">
+                🔍 輸入原譜和弦 (支援英文 `Cm`, `bE` 或簡譜級數 `6m`, `37-9+5`, `5m6/7b`)：
+              </label>
+              <div class="lookup-input-row">
+                <input type="text" id="chordLookupInput" value="6m" placeholder="例如: 6m, 37-9+5, 5m6/7b, CM7, bE..." />
+                <button type="button" id="btnPlayCurrentChord" class="btn btn-primary">🔊 彈奏和弦</button>
+              </div>
+            </div>
+
+            <div>
+              <div style="font-size: 0.76rem; color: #94a3b8; margin-bottom: 6px; font-weight: 600;">⚡ 點擊快速測試範例特殊和弦：</div>
+              <div id="quickChordChips" class="quick-chord-chips"></div>
+            </div>
+
+            <div id="voicingDetailBox" class="voicing-detail-box">
+              <!-- 由 js/app.js 動態渲染組成音明細 -->
+            </div>
+          </div>
+
+          <!-- 右側：3 八度 SVG 互動式鋼琴鍵盤 -->
+          <div>
+            <div id="pianoContainer" class="piano-stage">
+              <!-- 由 js/piano-visualizer.js 動態渲染 SVG 鋼琴 -->
+            </div>
+            <div class="piano-hint-bar">
+              <div class="legend-items">
+                <span><i class="legend-dot" style="background: #f59e0b;"></i>左手低音 / 轉位 Bass (C3~B3)</span>
+                <span><i class="legend-dot" style="background: #3b82f6;"></i>右手和弦根音 Root (1)</span>
+                <span><i class="legend-dot" style="background: #10b981;"></i>右手和弦組成音 (3, 5, 7, 9...)</span>
+              </div>
+              <span>琴鍵上同時標示：<strong>英文音名</strong> ＋ <strong>(固定調簡譜數字)</strong> ＋ <strong>[音程角色]</strong></span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 整首和弦譜批次轉調工作區 (內建《償還》與《川の流れのように》實譜) -->
+      <section class="card">
+        <div class="card-header">
+          <div class="card-title">
+            <span>🎼</span>
+            <span>整首和弦譜批次轉調與互動點選區</span>
+          </div>
+          <div class="preset-toolbar">
+            <button type="button" id="btnPresetChangHuan" class="btn btn-amber">📄 載入範例 1：《償還》(方框級數譜 Am ➔ 女調 Cm / 男調 Fm)</button>
+            <button type="button" id="btnPresetKawa" class="btn btn-emerald">📄 載入範例 2：《川の流れのように》(紅色英文譜 C ➔ D調)</button>
+          </div>
+        </div>
+
+        <div class="sheet-transposer-layout">
+          <!-- 左側：原譜文字輸入/編輯區 -->
+          <div class="sheet-input-column">
+            <label for="sheetInputTextarea" style="font-size: 0.85rem; font-weight: 700; color: #94a3b8;">
+              ✏️ 原譜和弦輸入區 (以 `|` 分隔小節、以 `[段落名稱]` 標示段落，可自由修改或貼上新譜)：
+            </label>
+            <textarea id="sheetInputTextarea" class="sheet-textarea" spellcheck="false"></textarea>
+            <div style="font-size: 0.78rem; color: #64748b;">
+              提示：支援同小節多個和弦（以空白分隔，如 `6 67 67+5` 或 `7b 5m6/7b`），輸入後右側即時同步轉調。
+            </div>
+          </div>
+
+          <!-- 右側：轉調後互動小節卡片區 -->
+          <div class="sheet-output-column">
+            <div id="quickKeyPresetsBar" class="quick-key-presets">
+              <!-- 由 js/app.js 動態渲染曲目常用調性快捷按鈕 -->
+            </div>
+
+            <div id="transposedSheetOutput" style="display: flex; flex-direction: column; gap: 14px;">
+              <!-- 由 js/app.js 動態渲染轉調後的段落與小節和弦卡 -->
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </div>
 
   </main>
 

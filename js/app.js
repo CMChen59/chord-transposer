@@ -2,24 +2,73 @@
  * 🎹 智慧和弦轉調與組成音查詢工具 - 前端應用程式主控制器 (js/app.js)
  *
  * 負責：
- * 1. 全域狀態管理 (原調 sourceKey、目標調 targetKey、顯示模式 displayMode、選中和弦 selectedChordRaw、音效開關 audioEnabled)
+ * 1. 全域狀態管理 (原調 sourceKey、目標調 targetKey、顯示模式 displayMode、分頁切換 activeTab)
  * 2. 新調性升降記號、自然音階與小調導音提示橫幅渲染
- * 3. 單一和弦即時查詢區與 3 八度互動式 SVG 鋼琴鍵盤連動
- * 4. 整首和弦譜批次轉調（內建《償還》方框級數譜與《川の流れのように》紅色英文和弦譜完整範例）
+ * 3. 【模式一：調性對應和弦 ＆ 組成音總表】自動產生 1~7 級常用對應和弦與組成音對照表 + 特殊和弦快速換算
+ * 4. 【模式二：互動鋼琴鍵盤 ＆ 整首和弦工作台】3 八度互動式 SVG 鋼琴鍵盤與整首範例譜批次轉調
  */
 
 (function () {
   'use strict';
 
   // ============================================================================
-  // 1. 內建實譜範例資料 (來自使用者提供的兩份電子琴簡譜)
+  // 1. 調性對應和弦總表之標準級數家族定義 (涵蓋大調與小調簡譜最常出現的和弦)
+  // ============================================================================
+
+  const REFERENCE_CHORD_CATALOG = [
+    // 1 級 (Do)
+    { degreeRaw: '1',       group: '1', isCommon: true,  roleNote: '大調主和弦 / 小調三級和弦' },
+    { degreeRaw: '1M7',     group: '1', isCommon: true,  roleNote: '一級大七和弦 (抒情常用)' },
+    { degreeRaw: '17',      group: '1', isCommon: false, roleNote: '一級屬七 (往四級過渡)' },
+    { degreeRaw: '1add9',   group: '1', isCommon: false, roleNote: '一級加九和弦' },
+
+    // 2 級 (Re)
+    { degreeRaw: '2m',      group: '2', isCommon: true,  roleNote: '二級小和弦 / 小調四級下屬和弦' },
+    { degreeRaw: '2m7',     group: '2', isCommon: true,  roleNote: '二級小七和弦 (2-5-1 進行核心)' },
+    { degreeRaw: '2m7b5',   group: '2', isCommon: true,  roleNote: '二級半減七 (小調 2-37-6m 常用)' },
+    { degreeRaw: '27',      group: '2', isCommon: false, roleNote: '二級副屬七和弦' },
+
+    // 3 級 (Mi)
+    { degreeRaw: '3m',      group: '3', isCommon: true,  roleNote: '三級小和弦' },
+    { degreeRaw: '3m7',     group: '3', isCommon: false, roleNote: '三級小七和弦' },
+    { degreeRaw: '37',      group: '3', isCommon: true,  roleNote: '⭐ 小調五級屬七導音和弦 (極常用)' },
+    { degreeRaw: '37-9+5',  group: '3', isCommon: true,  roleNote: '⭐ 小調屬七降九升五 (演歌/國台語常用)' },
+
+    // 4 級 (Fa)
+    { degreeRaw: '4',       group: '4', isCommon: true,  roleNote: '四級大三和弦 (下屬和弦)' },
+    { degreeRaw: '4M7',     group: '4', isCommon: true,  roleNote: '四級大七和弦 (《償還》間奏常用)' },
+    { degreeRaw: '4m',      group: '4', isCommon: true,  roleNote: '四級小和弦 (抒情歌借用和弦)' },
+    { degreeRaw: '4m6',     group: '4', isCommon: false, roleNote: '四級小六和弦' },
+
+    // 5 級 (Sol)
+    { degreeRaw: '5',       group: '5', isCommon: true,  roleNote: '五級大三屬和弦' },
+    { degreeRaw: '57',      group: '5', isCommon: true,  roleNote: '五級屬七和弦 (返回 1 級)' },
+    { degreeRaw: '5sus4',   group: '5', isCommon: true,  roleNote: '五級掛四和弦 (解決至 5 或 57)' },
+    { degreeRaw: '5m6/7b',  group: '5', isCommon: false, roleNote: '五級小六轉位和弦 (《償還》過門)' },
+
+    // 6 級 (La)
+    { degreeRaw: '6m',      group: '6', isCommon: true,  roleNote: '⭐ 小調主和弦 / 大調六級關係小和弦' },
+    { degreeRaw: '6m7',     group: '6', isCommon: false, roleNote: '六級小七和弦' },
+    { degreeRaw: '6',       group: '6', isCommon: false, roleNote: '六級大三和弦 (經過和弦)' },
+    { degreeRaw: '67',      group: '6', isCommon: true,  roleNote: '六級副屬七 (導向 2m)' },
+    { degreeRaw: '67+5',    group: '6', isCommon: false, roleNote: '六級屬七升五 (導向 2m)' },
+
+    // 7 級與變化級數 (Si / b7 / b3)
+    { degreeRaw: '7b',      group: '7', isCommon: true,  roleNote: '降七級大和弦 (bVII)' },
+    { degreeRaw: 'b3',      group: '7', isCommon: false, roleNote: '降三級借用和弦 (如 C 調中的 bE)' },
+    { degreeRaw: '77',      group: '7', isCommon: false, roleNote: '七級副屬七 (導向 37 或 3m)' },
+    { degreeRaw: '7m7b5',   group: '7', isCommon: false, roleNote: '七級導音半減七和弦' }
+  ];
+
+  // ============================================================================
+  // 2. 內建實譜範例資料 (模式二工作台使用)
   // ============================================================================
 
   const PRESET_SHEETS = {
     changHuan: {
       title: '《償還》鄧麗君 (電子琴方框級數譜 - 全曲)',
       sourceKey: 'Am',
-      targetKey: 'Cm', // 譜面建議女調 Cm (男調 Fm)
+      targetKey: 'Cm',
       quickTargets: [
         { label: '女調建議 (Cm)', key: 'Cm' },
         { label: '男調建議 (Fm)', key: 'Fm' },
@@ -45,7 +94,7 @@
     kawaNoNagare: {
       title: '《川の流れのように》美空雲雀 (紅色英文和弦譜 - 全曲)',
       sourceKey: 'C',
-      targetKey: 'D', // 譜面建議 C+2 (1=D)
+      targetKey: 'D',
       quickTargets: [
         { label: '譜面建議 C+2 (D大調)', key: 'D' },
         { label: '原譜預設 (C大調)', key: 'C' },
@@ -67,26 +116,27 @@ C CM7 | C7 | Em | bE | Dm | Em | Fm | Gsus4 | C`
     }
   };
 
-  // 依照大小調分組的調性選單清單
   const KEY_OPTIONS_MINOR = ['Am', 'Bbm', 'Bm', 'Cm', 'C#m', 'Dm', 'Ebm', 'Em', 'Fm', 'F#m', 'Gm', 'G#m'];
   const KEY_OPTIONS_MAJOR = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B'];
 
   // ============================================================================
-  // 2. 應用程式狀態 (App State)
+  // 3. 應用程式狀態 (App State)
   // ============================================================================
 
   const state = {
     sourceKey: 'Am',
     targetKey: 'Cm',
-    displayMode: 'english', // 'english' (預設英文) | 'number' (固定調數字) | 'practice' (練功雙語對照)
+    displayMode: 'english', // 'english' | 'number' | 'practice'
     audioEnabled: true,
+    activeTab: 'tab-reference-table',
+    degreeFilter: 'common', // 'common' | 'all' | '1' ~ '7'
     activePresetKey: 'changHuan',
-    selectedRawChord: '37-9+5',
+    selectedRawChord: '6m',
     selectedCardIndex: null
   };
 
   // ============================================================================
-  // 3. DOM 元素參照與初始化
+  // 4. DOM 元素參照與初始化
   // ============================================================================
 
   const els = {};
@@ -100,17 +150,29 @@ C CM7 | C7 | Em | bE | Dm | Em | Fm | Gsus4 | C`
     els.modeButtons = document.querySelectorAll('.mode-btn');
     els.btnAudioToggle = document.getElementById('btnAudioToggle');
 
+    // 分頁切換按鈕與面板
+    els.viewTabBtns = document.querySelectorAll('.view-tab-btn');
+    els.tabPanes = document.querySelectorAll('.tab-pane');
+
     // 新調性升降記號橫幅
     els.ksBanner = document.getElementById('keySignatureBanner');
 
-    // 單一和弦查詢與鋼琴區
+    // 模式一：調性對應和弦與組成音總表
+    els.refTableTitle = document.getElementById('refTableTitle');
+    els.thSourceKeyName = document.getElementById('thSourceKeyName');
+    els.thTargetKeyName = document.getElementById('thTargetKeyName');
+    els.quickPairBtns = document.querySelectorAll('.quick-pair-btn');
+    els.quickSingleChordInput = document.getElementById('quickSingleChordInput');
+    els.quickSingleChordResult = document.getElementById('quickSingleChordResult');
+    els.degreeFilterBtns = document.querySelectorAll('#degreeFilterBtns button');
+    els.chordRefTableBody = document.getElementById('chordRefTableBody');
+
+    // 模式二：單一和弦查詢與鋼琴區 + 批次和弦譜轉調區
     els.chordLookupInput = document.getElementById('chordLookupInput');
     els.btnPlayCurrentChord = document.getElementById('btnPlayCurrentChord');
     els.quickChordChips = document.getElementById('quickChordChips');
     els.voicingDetailBox = document.getElementById('voicingDetailBox');
     els.pianoContainer = document.getElementById('pianoContainer');
-
-    // 批次和弦譜轉調區
     els.btnPresetChangHuan = document.getElementById('btnPresetChangHuan');
     els.btnPresetKawa = document.getElementById('btnPresetKawa');
     els.sheetInputTextarea = document.getElementById('sheetInputTextarea');
@@ -118,9 +180,6 @@ C CM7 | C7 | Em | bE | Dm | Em | Fm | Gsus4 | C`
     els.transposedSheetOutput = document.getElementById('transposedSheetOutput');
   }
 
-  /**
-   * 填充原調與目標調下拉選單
-   */
   function populateKeySelects() {
     [els.sourceKeySelect, els.targetKeySelect].forEach(selectEl => {
       selectEl.innerHTML = '';
@@ -154,7 +213,7 @@ C CM7 | C7 | Em | bE | Dm | Em | Fm | Gsus4 | C`
   }
 
   // ============================================================================
-  // 4. 新調性升降記號與音階橫幅渲染
+  // 5. 新調性升降記號與音階橫幅渲染
   // ============================================================================
 
   function renderKeySignatureBanner() {
@@ -168,7 +227,6 @@ C CM7 | C7 | Em | bE | Dm | Em | Fm | Gsus4 | C`
       ? '原調 (0 半音)'
       : (signedDiff > 0 ? `升 +${signedDiff} 半音 (或降 ${signedDiff - 12})` : `降 ${signedDiff} 半音 (或升 +${signedDiff + 12})`);
 
-    // 升降記號黑鍵清單膠囊
     let accListHTML = '';
     if (tgtDetails.accidentalCount === 0) {
       accListHTML = `<span class="acc-pill">✨ 自然音階皆為白鍵，無固定升降記號</span>`;
@@ -180,7 +238,6 @@ C CM7 | C7 | Em | bE | Dm | Em | Fm | Gsus4 | C`
       }).join('');
     }
 
-    // 自然音階列表
     const scaleHTML = tgtDetails.scaleEnglish.map((eng, idx) => {
       const num = tgtDetails.scaleFixedNumber[idx];
       const isBlack = eng.includes('#') || eng.includes('b');
@@ -215,7 +272,127 @@ C CM7 | C7 | Em | bE | Dm | Em | Fm | Gsus4 | C`
   }
 
   // ============================================================================
-  // 5. 單一和弦組成音與互動式鋼琴鍵盤渲染
+  // 6. 【模式一】調性對應和弦 ＆ 組成音對照總表渲染
+  // ============================================================================
+
+  function renderQuickSingleConverter() {
+    const raw = (els.quickSingleChordInput.value || '').trim();
+    if (!raw) {
+      els.quickSingleChordResult.innerHTML = '<span style="color:#94a3b8;">請輸入任一和弦以查看轉調結果與組成音</span>';
+      return;
+    }
+
+    const tr = MusicTheory.transposeChord(raw, state.sourceKey, state.targetKey);
+    if (!tr) {
+      els.quickSingleChordResult.innerHTML = `<span style="color:#f43f5e; font-weight:700;">⚠️ 無法識別「${raw}」</span>`;
+      return;
+    }
+
+    const srcTr = MusicTheory.transposeChord(raw, state.sourceKey, state.sourceKey);
+    const srcEng = srcTr ? srcTr.englishChord : raw;
+
+    els.quickSingleChordResult.innerHTML = `
+      <span>原調: <strong style="color:#cbd5e1;">${raw} (${srcEng})</strong></span>
+      <span>➔ 目標調: <strong style="color:#34d399; font-size:1.2rem;">${tr.englishChord}</strong> <span style="color:#fbbf24; font-weight:700;">(數字: ${tr.fixedNumberChord})</span></span>
+      <span>組成音: <strong style="color:#60a5fa;">${tr.notes.english.join(' - ')}</strong> <span style="color:#fbbf24;">(${tr.notes.fixedNumber.join(' - ')})</span></span>
+      <button type="button" class="btn btn-primary" id="btnQuickSinglePlay" style="padding:4px 10px;">🔊 試聽</button>
+      <button type="button" class="btn" id="btnQuickSingleJumpPiano" style="padding:4px 10px;">🎹 看鋼琴鍵盤</button>
+    `;
+
+    const btnPlay = document.getElementById('btnQuickSinglePlay');
+    if (btnPlay) {
+      btnPlay.addEventListener('click', () => PianoVisualizer.playChordAudio(tr));
+    }
+
+    const btnJump = document.getElementById('btnQuickSingleJumpPiano');
+    if (btnJump) {
+      btnJump.addEventListener('click', () => jumpToPianoWithChord(raw));
+    }
+  }
+
+  function renderReferenceTable() {
+    const srcInfo = MusicTheory.getKeyInfo(state.sourceKey);
+    const tgtInfo = MusicTheory.getKeyInfo(state.targetKey);
+
+    els.refTableTitle.textContent = `【${srcInfo.label.split(' ')[0]} ➔ ${tgtInfo.label.split(' ')[0]}】常用對應和弦與組成音對照總表`;
+    els.thSourceKeyName.textContent = state.sourceKey;
+    els.thTargetKeyName.textContent = state.targetKey;
+
+    const filteredCatalog = REFERENCE_CHORD_CATALOG.filter(item => {
+      if (state.degreeFilter === 'common') return item.isCommon;
+      if (state.degreeFilter === 'all') return true;
+      return item.group === state.degreeFilter;
+    });
+
+    const rowsHTML = filteredCatalog.map(item => {
+      // 計算該級數在「原調」的對應和弦與「目標調」的對應和弦
+      const srcChord = MusicTheory.transposeChord(item.degreeRaw, state.sourceKey, state.sourceKey);
+      const tgtChord = MusicTheory.transposeChord(item.degreeRaw, state.sourceKey, state.targetKey);
+      if (!srcChord || !tgtChord) return '';
+
+      let targetDisplayHTML = `<span class="tgt-chord-cell">${tgtChord.englishChord}</span><span class="tgt-num-tag">(數字: ${tgtChord.fixedNumberChord})</span>`;
+      if (state.displayMode === 'number') {
+        targetDisplayHTML = `<span class="tgt-chord-cell" style="color:#fbbf24;">${tgtChord.fixedNumberChord}</span><span class="tgt-num-tag" style="color:#34d399;">(英文: ${tgtChord.englishChord})</span>`;
+      } else if (state.displayMode === 'practice') {
+        targetDisplayHTML = `<span class="tgt-chord-cell">${item.degreeRaw} ➔ ${tgtChord.englishChord}</span><span class="tgt-num-tag">(${tgtChord.fixedNumberChord})</span>`;
+      }
+
+      const engNotes = tgtChord.notes.english.join(' - ');
+      const numNotes = tgtChord.notes.fixedNumber.join(' - ');
+      const isPrimaryTonic = (srcInfo.isMinor && item.degreeRaw === '6m') || (!srcInfo.isMinor && item.degreeRaw === '1');
+
+      return `
+        <tr class="${isPrimaryTonic ? 'is-diatonic-primary' : ''}">
+          <td><span class="degree-badge">${item.degreeRaw}</span></td>
+          <td class="src-chord-cell">${srcChord.englishChord} <small style="color:#64748b;">(${srcChord.fixedNumberChord})</small></td>
+          <td>${targetDisplayHTML}</td>
+          <td><span class="notes-eng-pill">${engNotes}</span></td>
+          <td><span class="notes-num-pill">${numNotes}</span></td>
+          <td style="color:#94a3b8; font-size:0.84rem;">${item.roleNote}</td>
+          <td style="white-space:nowrap;">
+            <button type="button" class="btn btn-row-play" data-deg="${item.degreeRaw}" style="padding:4px 8px; font-size:0.78rem;">🔊 試聽</button>
+            <button type="button" class="btn btn-row-piano" data-deg="${item.degreeRaw}" style="padding:4px 8px; font-size:0.78rem;">🎹 看琴鍵</button>
+          </td>
+        </tr>`;
+    }).join('');
+
+    els.chordRefTableBody.innerHTML = rowsHTML;
+
+    // 綁定表格內的試聽與跳轉鋼琴按鈕
+    els.chordRefTableBody.querySelectorAll('.btn-row-play').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const deg = btn.getAttribute('data-deg');
+        const tr = MusicTheory.transposeChord(deg, state.sourceKey, state.targetKey);
+        if (tr) PianoVisualizer.playChordAudio(tr);
+      });
+    });
+
+    els.chordRefTableBody.querySelectorAll('.btn-row-piano').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const deg = btn.getAttribute('data-deg');
+        jumpToPianoWithChord(deg);
+      });
+    });
+  }
+
+  function switchTab(tabId) {
+    state.activeTab = tabId;
+    els.viewTabBtns.forEach(btn => {
+      btn.classList.toggle('active', btn.getAttribute('data-tab') === tabId);
+    });
+    els.tabPanes.forEach(pane => {
+      pane.classList.toggle('active', pane.id === tabId);
+    });
+  }
+
+  function jumpToPianoWithChord(rawChord) {
+    switchTab('tab-interactive-studio');
+    els.chordLookupInput.value = rawChord;
+    renderSelectedChordAndPiano(true);
+  }
+
+  // ============================================================================
+  // 7. 【模式二】單一和弦組成音與互動式鋼琴鍵盤 + 批次和弦譜工作台
   // ============================================================================
 
   function renderSelectedChordAndPiano(triggerAudio = false) {
@@ -266,7 +443,6 @@ C CM7 | C7 | Em | bE | Dm | Em | Fm | Gsus4 | C`
       </div>
     `;
 
-    // 渲染 3 八度互動式鋼琴鍵盤
     PianoVisualizer.mountPiano(els.pianoContainer, transposed);
 
     if (triggerAudio && state.audioEnabled) {
@@ -274,9 +450,6 @@ C CM7 | C7 | Em | bE | Dm | Em | Fm | Gsus4 | C`
     }
   }
 
-  /**
-   * 建立快速測試和弦按鈕列
-   */
   function renderQuickChordChips() {
     const sampleChords = ['6m', '2m', '37', '37-9+5', '67+5', '5m6/7b', '4M7', 'CM7', 'Gsus4', 'bE', 'Dm7b5'];
     els.quickChordChips.innerHTML = sampleChords.map(ch =>
@@ -292,13 +465,6 @@ C CM7 | C7 | Em | bE | Dm | Em | Fm | Gsus4 | C`
     });
   }
 
-  // ============================================================================
-  // 6. 批次和弦譜解析與小節卡片渲染
-  // ============================================================================
-
-  /**
-   * 解析多行和弦譜文字，保留段落標籤 [Intro] 與小節結構
-   */
   function parseSheetText(text) {
     const lines = (text || '').split(/\r?\n/);
     const sections = [];
@@ -308,7 +474,6 @@ C CM7 | C7 | Em | bE | Dm | Em | Fm | Gsus4 | C`
       const trimmed = line.trim();
       if (!trimmed) return;
 
-      // 判斷是否為段落標題，如 [Main A 主歌]
       const secMatch = trimmed.match(/^\[(.*)\]$/);
       if (secMatch) {
         if (currentSection.bars.length > 0) {
@@ -318,9 +483,8 @@ C CM7 | C7 | Em | bE | Dm | Em | Fm | Gsus4 | C`
         return;
       }
 
-      // 以小節線 | 分割小節，再以空白分割小節內的多個和弦
       const barStrings = trimmed.split('|').map(s => s.trim()).filter(Boolean);
-      barStrings.forEach((barStr, barIdx) => {
+      barStrings.forEach(barStr => {
         const tokens = barStr.split(/\s+/).filter(Boolean);
         tokens.forEach(token => {
           currentSection.bars.push({
@@ -337,9 +501,6 @@ C CM7 | C7 | Em | bE | Dm | Em | Fm | Gsus4 | C`
     return sections;
   }
 
-  /**
-   * 渲染快速目標調性切換列 (針對當前載入的範例曲目)
-   */
   function renderQuickKeyPresets() {
     const preset = PRESET_SHEETS[state.activePresetKey];
     if (!preset || !preset.quickTargets) {
@@ -367,9 +528,6 @@ C CM7 | C7 | Em | bE | Dm | Em | Fm | Gsus4 | C`
     });
   }
 
-  /**
-   * 渲染整首轉調後的小節和弦卡片網格
-   */
   function renderTransposedSheet() {
     const rawText = els.sheetInputTextarea.value;
     const sections = parseSheetText(rawText);
@@ -397,7 +555,6 @@ C CM7 | C7 | Em | bE | Dm | Em | Fm | Gsus4 | C`
             </div>`;
         }
 
-        // 依據顯示模式決定主顯示與副顯示文字
         let mainDisplay = tr.englishChord;
         let subDisplay = `數字: ${tr.fixedNumberChord}`;
 
@@ -436,7 +593,6 @@ C CM7 | C7 | Em | bE | Dm | Em | Fm | Gsus4 | C`
 
     els.transposedSheetOutput.innerHTML = sectionsHTML;
 
-    // 綁定點擊任一小節和弦卡，連動上方鋼琴鍵盤與發聲
     els.transposedSheetOutput.querySelectorAll('.chord-bar-card[data-raw-chord]').forEach(card => {
       card.addEventListener('click', () => {
         const rawChord = card.getAttribute('data-raw-chord');
@@ -449,7 +605,7 @@ C CM7 | C7 | Em | bE | Dm | Em | Fm | Gsus4 | C`
   }
 
   // ============================================================================
-  // 7. 半音升降與範例載入輔助函式
+  // 8. 半音升降與範例載入輔助函式
   // ============================================================================
 
   function shiftTargetKeyBySemitones(delta) {
@@ -481,7 +637,6 @@ C CM7 | C7 | Em | bE | Dm | Em | Fm | Gsus4 | C`
     els.targetKeySelect.value = state.targetKey;
     els.sheetInputTextarea.value = preset.content;
 
-    // 預設選取該譜的第一個特殊和弦展示於鋼琴上
     const firstChord = presetKey === 'changHuan' ? '6m' : 'C';
     els.chordLookupInput.value = firstChord;
 
@@ -490,16 +645,26 @@ C CM7 | C7 | Em | bE | Dm | Em | Fm | Gsus4 | C`
 
   function updateAllViews() {
     renderKeySignatureBanner();
+    renderQuickSingleConverter();
+    renderReferenceTable();
     renderQuickKeyPresets();
     renderSelectedChordAndPiano(false);
     renderTransposedSheet();
   }
 
   // ============================================================================
-  // 8. 事件綁定與啟動
+  // 9. 事件綁定與啟動
   // ============================================================================
 
   function bindEvents() {
+    // 分頁切換
+    els.viewTabBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        switchTab(btn.getAttribute('data-tab'));
+      });
+    });
+
+    // 原調與目標調變更
     els.sourceKeySelect.addEventListener('change', () => {
       state.sourceKey = els.sourceKeySelect.value;
       updateAllViews();
@@ -518,12 +683,13 @@ C CM7 | C7 | Em | bE | Dm | Em | Fm | Gsus4 | C`
       updateAllViews();
     });
 
-    // 顯示模式切換 (英文字母 / 固定調數字 / 練功對照)
+    // 顯示模式切換
     els.modeButtons.forEach(btn => {
       btn.addEventListener('click', () => {
         els.modeButtons.forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
         state.displayMode = btn.getAttribute('data-mode');
+        renderReferenceTable();
         renderTransposedSheet();
       });
     });
@@ -535,7 +701,33 @@ C CM7 | C7 | Em | bE | Dm | Em | Fm | Gsus4 | C`
       els.btnAudioToggle.className = state.audioEnabled ? 'btn btn-emerald' : 'btn';
     });
 
-    // 單一和弦即時輸入查詢
+    // 模式一：快速調性組合按鈕
+    els.quickPairBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        state.sourceKey = btn.getAttribute('data-src');
+        state.targetKey = btn.getAttribute('data-tgt');
+        els.sourceKeySelect.value = state.sourceKey;
+        els.targetKeySelect.value = state.targetKey;
+        updateAllViews();
+      });
+    });
+
+    // 模式一：特殊和弦快速換算框
+    els.quickSingleChordInput.addEventListener('input', () => {
+      renderQuickSingleConverter();
+    });
+
+    // 模式一：級數篩選按鈕
+    els.degreeFilterBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        els.degreeFilterBtns.forEach(b => b.className = 'btn');
+        btn.className = 'btn btn-primary';
+        state.degreeFilter = btn.getAttribute('data-filter');
+        renderReferenceTable();
+      });
+    });
+
+    // 模式二：單一和弦即時輸入查詢与試聽
     els.chordLookupInput.addEventListener('input', () => {
       renderSelectedChordAndPiano(false);
     });
@@ -548,7 +740,7 @@ C CM7 | C7 | Em | bE | Dm | Em | Fm | Gsus4 | C`
       }
     });
 
-    // 範例譜載入與即時文字編輯
+    // 模式二：範例譜載入與即時文字編輯
     els.btnPresetChangHuan.addEventListener('click', () => loadPresetSheet('changHuan'));
     els.btnPresetKawa.addEventListener('click', () => loadPresetSheet('kawaNoNagare'));
 

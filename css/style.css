@@ -209,6 +209,186 @@ select:focus, input[type="text"]:focus, textarea:focus {
   gap: 20px;
 }
 
+/* 頂部分頁切換列 (Tabs Navigation) */
+.view-tabs-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  background: var(--bg-card);
+  padding: 8px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-color);
+  box-shadow: var(--shadow-card);
+}
+
+.view-tab-btn {
+  flex: 1;
+  min-width: 220px;
+  padding: 11px 16px;
+  border-radius: var(--radius-md);
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 0.96rem;
+  font-weight: 800;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: all 0.2s ease;
+}
+
+.view-tab-btn:hover {
+  background: rgba(59, 130, 246, 0.1);
+  color: var(--text-primary);
+}
+
+.view-tab-btn.active {
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+  color: #ffffff;
+  border-color: #60a5fa;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.35);
+}
+
+.tab-pane {
+  display: none;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.tab-pane.active {
+  display: flex;
+}
+
+/* 分頁 1：調性對應和弦＆組成音對照總表 */
+.filter-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  background: var(--bg-input);
+  padding: 12px 16px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-color);
+}
+
+.degree-filter-btns {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.quick-convert-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(15, 23, 42, 0.9) 100%);
+  border: 1px solid rgba(16, 185, 129, 0.4);
+  padding: 14px 18px;
+  border-radius: var(--radius-md);
+}
+
+.quick-convert-bar input {
+  width: 240px;
+  font-size: 1rem;
+  font-weight: 800;
+}
+
+.quick-convert-result {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px;
+  font-size: 0.95rem;
+}
+
+.chord-ref-table-wrapper {
+  overflow-x: auto;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-color);
+}
+
+.chord-ref-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--bg-input);
+  font-size: 0.92rem;
+}
+
+.chord-ref-table th {
+  background: #162032;
+  color: var(--text-secondary);
+  font-weight: 800;
+  text-align: left;
+  padding: 12px 14px;
+  border-bottom: 2px solid var(--border-color);
+  white-space: nowrap;
+}
+
+.chord-ref-table td {
+  padding: 11px 14px;
+  border-bottom: 1px solid #1e293b;
+  vertical-align: middle;
+}
+
+.chord-ref-table tr:hover td {
+  background: rgba(59, 130, 246, 0.08);
+}
+
+.chord-ref-table tr.is-diatonic-primary td {
+  background: rgba(16, 185, 129, 0.05);
+}
+
+.chord-ref-table tr.is-diatonic-primary:hover td {
+  background: rgba(16, 185, 129, 0.12);
+}
+
+.degree-badge {
+  display: inline-block;
+  background: #1e293b;
+  border: 1px solid #475569;
+  color: #f8fafc;
+  font-weight: 800;
+  padding: 3px 9px;
+  border-radius: var(--radius-sm);
+  min-width: 68px;
+  text-align: center;
+}
+
+.src-chord-cell {
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: #cbd5e1;
+}
+
+.tgt-chord-cell {
+  font-size: 1.25rem;
+  font-weight: 900;
+  color: #34d399;
+}
+
+.tgt-num-tag {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #fbbf24;
+  margin-left: 8px;
+}
+
+.notes-eng-pill {
+  color: #60a5fa;
+  font-weight: 800;
+  font-size: 0.96rem;
+}
+
+.notes-num-pill {
+  color: #fbbf24;
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+
 /* 新調性升降記號與音階橫幅面板 */
 .key-signature-banner {
   background: linear-gradient(135deg, rgba(30, 41, 59, 0.95) 0%, rgba(15, 23, 42, 0.95) 100%);
