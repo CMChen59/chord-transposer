@@ -8,6 +8,7 @@
 
 const assert = require('assert');
 const MusicTheory = require('../js/music-theory.js');
+const PianoVisualizer = require('../js/piano-visualizer.js');
 
 console.log('=== 開始執行 T1-1 核心樂理解析器測試 ===\n');
 
@@ -91,6 +92,31 @@ for (const kt of keyTestCases) {
 
   console.log(`  ✔ [${details.keyLabel}] ➔ ${details.badgeText}：${details.detailText}`);
   console.log(`     音階: ${details.scaleEnglish.join('-')} (${details.scaleFixedNumber.join('-')})${details.harmonicMinorNote ? ' | 💡 ' + details.harmonicMinorNote : ''}`);
+}
+
+// 4. 測試 T1-3 互動式鋼琴鍵盤狀態模型與 SVG 渲染 (PianoVisualizer)
+console.log('\n【測試組 4】T1-3 鋼琴鍵盤視覺化模組 (左右手分區、黑白鍵判定與雙語標籤)：');
+const pianoSamples = [
+  { raw: '6m',     src: 'Am', tgt: 'Cm', desc: '《償還》主和弦 6m 轉 Cm' },
+  { raw: '37-9+5', src: 'Am', tgt: 'Cm', desc: '《償還》變化屬七 37-9+5 轉 G7(b9#5)' },
+  { raw: '5m6/7b', src: 'Am', tgt: 'Cm', desc: '《償還》轉位和弦 5m6/7b 轉 Bbm6/Db' }
+];
+
+for (const ps of pianoSamples) {
+  const transposed = MusicTheory.transposeChord(ps.raw, ps.src, ps.tgt);
+  const kbState = PianoVisualizer.buildKeyboardState(transposed);
+  const svgStr = PianoVisualizer.renderPianoSVG(transposed);
+
+  assert(kbState.keys.length === 36, '預設應產生 3 個八度共 36 個琴鍵');
+  assert(kbState.highlightedKeys.length === 1 + transposed.notes.english.length, '標亮琴鍵數應等於 1 個左手低音 + 右手組成音數量');
+  assert(svgStr.startsWith('<svg') && svgStr.endsWith('</svg>'), '應正確輸出 SVG 向量標籤');
+
+  const keySummary = kbState.highlightedKeys.map(k => {
+    const bw = k.isBlack ? '黑鍵' : '白鍵';
+    return `[${k.intervalLabel}] ${k.displayEng}(${k.displayNum})(${bw}, MIDI:${k.midi})`;
+  }).join(' | ');
+
+  console.log(`  ✔ ${ps.desc} ➔ 標亮琴鍵: ${keySummary}`);
 }
 
 console.log('\n🎉 所有測試案例 100% 通過！');
