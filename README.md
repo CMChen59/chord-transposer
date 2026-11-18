@@ -15,10 +15,20 @@
 | [`ISSUES.md`](./ISSUES.md) | **問題追蹤清單**：記錄辨識誤差、樂理特例、UI 調整需求與解決方案 |
 | [`docs/DISCUSSION_LOG.md`](./docs/DISCUSSION_LOG.md) | **討論與執行日誌**：完整保存每次的需求討論、技術決策與實作變更紀錄 |
 
-> 💡 **換電腦時的 AI 接續方式**：
-> 當您在另一台電腦執行 `git pull` 後，只需對 AI 說：
-> *「請先讀取 `README.md`、`TASKS.md`、`ISSUES.md` 與 `docs/DISCUSSION_LOG.md` 了解目前進度，我們繼續推進下一個任務。」*
-> AI 即可瞬間掌握所有上下文，無縫接軌！
+> 💡 **換電腦時的 AI 接續方式（可直接複製貼給 AI）**：
+>
+> **情况 A：家裡電腦「第一次」使用（還沒下載過專案）**
+> 打開您想放專案的資料夾，直接複製這段話貼給 AI：
+> ```text
+> 請幫我把 https://github.com/CMChen59/chord-transposer.git 專案 git clone 下來，並讀取裡面的 README.md、TASKS.md、ISSUES.md 與 docs/DISCUSSION_LOG.md 同步所有討論紀錄與目前進度。
+> ```
+>
+> **情況 B：之後在公司或家裡切換電腦時（已有專案資料夾）**
+> 用編輯器打開專案資料夾後，直接複製這段話貼給 AI：
+> ```text
+> 請先執行 git pull 同步最新檔案，並讀取 README.md、TASKS.md、ISSUES.md 與 docs/DISCUSSION_LOG.md，跟我確認目前的任務進度，我們繼續往下執行。
+> ```
+> AI 就會瞬間讀完我們所有的討論脈絡、任務清單與 Issue，100% 無縫接軌！
 
 ---
 
