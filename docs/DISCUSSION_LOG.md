@@ -54,3 +54,4 @@
 - **執行動作**：
   - 於工作目錄 `d:\Vibe Coding\和弦轉調工具` 初始化 Git 儲存庫 (`git init`)。
   - 建立 `README.md`、`TASKS.md`（任務清單）、`ISSUES.md`（問題清單）與 `docs/DISCUSSION_LOG.md`（本討論日誌）。
+  - 綁定遠端 GitHub 儲存庫：`https://github.com/CMChen59/chord-transposer.git` 並推送初始版本。
