@@ -71,4 +71,26 @@ for (const tc of kawaCases) {
   console.log(`  ✔ 原譜 [${tc.raw.padEnd(6)}] ➔ D調: ${resD.englishChord.padEnd(6)} | 數字: ${resD.fixedNumberChord.padEnd(6)} | D調組成音: ${resD.notes.english.join('-')} (${resD.notes.fixedNumber.join('-')})`);
 }
 
+// 3. 測試新調性升降記號與音階資訊查詢 (getKeySignatureDetails)
+console.log('\n【測試組 3】新調性升降記號、音階與導音提示驗證：');
+const keyTestCases = [
+  { key: 'Am', expectedType: 'none',  expectedCount: 0, expectedAccEng: [],                       expectedAccNum: [] },
+  { key: 'Cm', expectedType: 'flat',  expectedCount: 3, expectedAccEng: ['Bb', 'Eb', 'Ab'],       expectedAccNum: ['b7', 'b3', 'b6'] },
+  { key: 'Fm', expectedType: 'flat',  expectedCount: 4, expectedAccEng: ['Bb', 'Eb', 'Ab', 'Db'], expectedAccNum: ['b7', 'b3', 'b6', 'b2'] },
+  { key: 'D',  expectedType: 'sharp', expectedCount: 2, expectedAccEng: ['F#', 'C#'],             expectedAccNum: ['#4', '#1'] },
+  { key: 'G',  expectedType: 'sharp', expectedCount: 1, expectedAccEng: ['F#'],                   expectedAccNum: ['#4'] },
+  { key: 'bE', expectedType: 'flat',  expectedCount: 3, expectedAccEng: ['Bb', 'Eb', 'Ab'],       expectedAccNum: ['b7', 'b3', 'b6'] }
+];
+
+for (const kt of keyTestCases) {
+  const details = MusicTheory.getKeySignatureDetails(kt.key);
+  assert.strictEqual(details.accidentalType, kt.expectedType);
+  assert.strictEqual(details.accidentalCount, kt.expectedCount);
+  assert.deepStrictEqual(details.accidentalsEnglish, kt.expectedAccEng);
+  assert.deepStrictEqual(details.accidentalsFixedNumber, kt.expectedAccNum);
+
+  console.log(`  ✔ [${details.keyLabel}] ➔ ${details.badgeText}：${details.detailText}`);
+  console.log(`     音階: ${details.scaleEnglish.join('-')} (${details.scaleFixedNumber.join('-')})${details.harmonicMinorNote ? ' | 💡 ' + details.harmonicMinorNote : ''}`);
+}
+
 console.log('\n🎉 所有測試案例 100% 通過！');

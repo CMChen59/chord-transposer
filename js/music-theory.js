@@ -55,42 +55,50 @@
   };
 
   /**
-   * 調性資料庫：定義各大小調的根音半音、關係大調基準音 (1=?)，以及偏好使用 # 或 b
+   * 調性資料庫：定義各大小調的根音半音、關係大調基準音 (1=?)、升降記號數量與五度圈順序
    * 注意：在簡譜級數系統中，大調以 1 為主音，小調以 6m 為主音（例如 Am 調的 6m=Am, 1=C；Cm 調的 6m=Cm, 1=Eb）
    */
+  const ORDER_OF_SHARPS_ENG = ['F#', 'C#', 'G#', 'D#', 'A#', 'E#', 'B#'];
+  const ORDER_OF_SHARPS_NUM = ['#4', '#1', '#5', '#2', '#6', '#3', '#7'];
+  const ORDER_OF_SHARPS_SOLFEGE = ['升Fa (#4)', '升Do (#1)', '升Sol (#5)', '升Re (#2)', '升La (#6)', '升Mi (#3)', '升Si (#7)'];
+
+  const ORDER_OF_FLATS_ENG = ['Bb', 'Eb', 'Ab', 'Db', 'Gb', 'Cb', 'Fb'];
+  const ORDER_OF_FLATS_NUM = ['b7', 'b3', 'b6', 'b2', 'b5', 'b1', 'b4'];
+  const ORDER_OF_FLATS_SOLFEGE = ['降Si (b7)', '降Mi (b3)', '降La (b6)', '降Re (b2)', '降Sol (b5)', '降Do (b1)', '降Fa (b4)'];
+
   const KEY_SIGNATURES = {
     // 大調 (Major Keys)
-    'C':  { tonic: 0,  majorBase: 0,  isMinor: false, preferFlat: false, label: 'C 大調' },
-    'Db': { tonic: 1,  majorBase: 1,  isMinor: false, preferFlat: true,  label: 'Db 大調 (C#)' },
-    'C#': { tonic: 1,  majorBase: 1,  isMinor: false, preferFlat: false, label: 'C# 大調 (Db)' },
-    'D':  { tonic: 2,  majorBase: 2,  isMinor: false, preferFlat: false, label: 'D 大調' },
-    'Eb': { tonic: 3,  majorBase: 3,  isMinor: false, preferFlat: true,  label: 'Eb 大調 (bE)' },
-    'E':  { tonic: 4,  majorBase: 4,  isMinor: false, preferFlat: false, label: 'E 大調' },
-    'F':  { tonic: 5,  majorBase: 5,  isMinor: false, preferFlat: true,  label: 'F 大調' },
-    'F#': { tonic: 6,  majorBase: 6,  isMinor: false, preferFlat: false, label: 'F# 大調 (Gb)' },
-    'Gb': { tonic: 6,  majorBase: 6,  isMinor: false, preferFlat: true,  label: 'Gb 大調 (F#)' },
-    'G':  { tonic: 7,  majorBase: 7,  isMinor: false, preferFlat: false, label: 'G 大調' },
-    'Ab': { tonic: 8,  majorBase: 8,  isMinor: false, preferFlat: true,  label: 'Ab 大調 (bA)' },
-    'A':  { tonic: 9,  majorBase: 9,  isMinor: false, preferFlat: false, label: 'A 大調' },
-    'Bb': { tonic: 10, majorBase: 10, isMinor: false, preferFlat: true,  label: 'Bb 大調 (bB)' },
-    'B':  { tonic: 11, majorBase: 11, isMinor: false, preferFlat: false, label: 'B 大調' },
+    'C':  { tonic: 0,  majorBase: 0,  isMinor: false, preferFlat: false, accType: 'none',  accCount: 0, relativeKey: 'Am',  label: 'C 大調' },
+    'Db': { tonic: 1,  majorBase: 1,  isMinor: false, preferFlat: true,  accType: 'flat',  accCount: 5, relativeKey: 'Bbm', label: 'Db 大調 (C#)' },
+    'C#': { tonic: 1,  majorBase: 1,  isMinor: false, preferFlat: false, accType: 'sharp', accCount: 7, relativeKey: 'A#m', label: 'C# 大調 (Db)' },
+    'D':  { tonic: 2,  majorBase: 2,  isMinor: false, preferFlat: false, accType: 'sharp', accCount: 2, relativeKey: 'Bm',  label: 'D 大調' },
+    'Eb': { tonic: 3,  majorBase: 3,  isMinor: false, preferFlat: true,  accType: 'flat',  accCount: 3, relativeKey: 'Cm',  label: 'Eb 大調 (bE)' },
+    'E':  { tonic: 4,  majorBase: 4,  isMinor: false, preferFlat: false, accType: 'sharp', accCount: 4, relativeKey: 'C#m', label: 'E 大調' },
+    'F':  { tonic: 5,  majorBase: 5,  isMinor: false, preferFlat: true,  accType: 'flat',  accCount: 1, relativeKey: 'Dm',  label: 'F 大調' },
+    'F#': { tonic: 6,  majorBase: 6,  isMinor: false, preferFlat: false, accType: 'sharp', accCount: 6, relativeKey: 'D#m', label: 'F# 大調 (Gb)' },
+    'Gb': { tonic: 6,  majorBase: 6,  isMinor: false, preferFlat: true,  accType: 'flat',  accCount: 6, relativeKey: 'Ebm', label: 'Gb 大調 (F#)' },
+    'G':  { tonic: 7,  majorBase: 7,  isMinor: false, preferFlat: false, accType: 'sharp', accCount: 1, relativeKey: 'Em',  label: 'G 大調' },
+    'Ab': { tonic: 8,  majorBase: 8,  isMinor: false, preferFlat: true,  accType: 'flat',  accCount: 4, relativeKey: 'Fm',  label: 'Ab 大調 (bA)' },
+    'A':  { tonic: 9,  majorBase: 9,  isMinor: false, preferFlat: false, accType: 'sharp', accCount: 3, relativeKey: 'F#m', label: 'A 大調' },
+    'Bb': { tonic: 10, majorBase: 10, isMinor: false, preferFlat: true,  accType: 'flat',  accCount: 2, relativeKey: 'Gm',  label: 'Bb 大調 (bB)' },
+    'B':  { tonic: 11, majorBase: 11, isMinor: false, preferFlat: false, accType: 'sharp', accCount: 5, relativeKey: 'G#m', label: 'B 大調' },
 
     // 小調 (Minor Keys) - majorBase 為其關係大調 (Relative Major = tonic + 3 semitones)
-    'Am':  { tonic: 9,  majorBase: 0,  isMinor: true, preferFlat: false, label: 'Am 小調 (關係大調 C)' },
-    'Bbm': { tonic: 10, majorBase: 1,  isMinor: true, preferFlat: true,  label: 'Bbm 小調 (關係大調 Db)' },
-    'A#m': { tonic: 10, majorBase: 1,  isMinor: true, preferFlat: false, label: 'A#m 小調 (關係大調 C#)' },
-    'Bm':  { tonic: 11, majorBase: 2,  isMinor: true, preferFlat: false, label: 'Bm 小調 (關係大調 D)' },
-    'Cm':  { tonic: 0,  majorBase: 3,  isMinor: true, preferFlat: true,  label: 'Cm 小調 (關係大調 Eb)' },
-    'C#m': { tonic: 1,  majorBase: 4,  isMinor: true, preferFlat: false, label: 'C#m 小調 (關係大調 E)' },
-    'Dm':  { tonic: 2,  majorBase: 5,  isMinor: true, preferFlat: true,  label: 'Dm 小調 (關係大調 F)' },
-    'D#m': { tonic: 3,  majorBase: 6,  isMinor: true, preferFlat: false, label: 'D#m 小調 (關係大調 F#)' },
-    'Ebm': { tonic: 3,  majorBase: 6,  isMinor: true, preferFlat: true,  label: 'Ebm 小調 (關係大調 Gb)' },
-    'Em':  { tonic: 4,  majorBase: 7,  isMinor: true, preferFlat: false, label: 'Em 小調 (關係大調 G)' },
-    'Fm':  { tonic: 5,  majorBase: 8,  isMinor: true, preferFlat: true,  label: 'Fm 小調 (關係大調 Ab)' },
-    'F#m': { tonic: 6,  majorBase: 9,  isMinor: true, preferFlat: false, label: 'F#m 小調 (關係大調 A)' },
-    'Gm':  { tonic: 7,  majorBase: 10, isMinor: true, preferFlat: true,  label: 'Gm 小調 (關係大調 Bb)' },
-    'G#m': { tonic: 8,  majorBase: 11, isMinor: true, preferFlat: false, label: 'G#m 小調 (關係大調 B)' },
-    'Abm': { tonic: 8,  majorBase: 11, isMinor: true, preferFlat: true,  label: 'Abm 小調 (關係大調 Cb)' }
+    'Am':  { tonic: 9,  majorBase: 0,  isMinor: true, preferFlat: false, accType: 'none',  accCount: 0, relativeKey: 'C',  label: 'Am 小調 (關係大調 C)' },
+    'Bbm': { tonic: 10, majorBase: 1,  isMinor: true, preferFlat: true,  accType: 'flat',  accCount: 5, relativeKey: 'Db', label: 'Bbm 小調 (關係大調 Db)' },
+    'A#m': { tonic: 10, majorBase: 1,  isMinor: true, preferFlat: false, accType: 'sharp', accCount: 7, relativeKey: 'C#', label: 'A#m 小調 (關係大調 C#)' },
+    'Bm':  { tonic: 11, majorBase: 2,  isMinor: true, preferFlat: false, accType: 'sharp', accCount: 2, relativeKey: 'D',  label: 'Bm 小調 (關係大調 D)' },
+    'Cm':  { tonic: 0,  majorBase: 3,  isMinor: true, preferFlat: true,  accType: 'flat',  accCount: 3, relativeKey: 'Eb', label: 'Cm 小調 (關係大調 Eb)' },
+    'C#m': { tonic: 1,  majorBase: 4,  isMinor: true, preferFlat: false, accType: 'sharp', accCount: 4, relativeKey: 'E',  label: 'C#m 小調 (關係大調 E)' },
+    'Dm':  { tonic: 2,  majorBase: 5,  isMinor: true, preferFlat: true,  accType: 'flat',  accCount: 1, relativeKey: 'F',  label: 'Dm 小調 (關係大調 F)' },
+    'D#m': { tonic: 3,  majorBase: 6,  isMinor: true, preferFlat: false, accType: 'sharp', accCount: 6, relativeKey: 'F#', label: 'D#m 小調 (關係大調 F#)' },
+    'Ebm': { tonic: 3,  majorBase: 6,  isMinor: true, preferFlat: true,  accType: 'flat',  accCount: 6, relativeKey: 'Gb', label: 'Ebm 小調 (關係大調 Gb)' },
+    'Em':  { tonic: 4,  majorBase: 7,  isMinor: true, preferFlat: false, accType: 'sharp', accCount: 1, relativeKey: 'G',  label: 'Em 小調 (關係大調 G)' },
+    'Fm':  { tonic: 5,  majorBase: 8,  isMinor: true, preferFlat: true,  accType: 'flat',  accCount: 4, relativeKey: 'Ab', label: 'Fm 小調 (關係大調 Ab)' },
+    'F#m': { tonic: 6,  majorBase: 9,  isMinor: true, preferFlat: false, accType: 'sharp', accCount: 3, relativeKey: 'A',  label: 'F#m 小調 (關係大調 A)' },
+    'Gm':  { tonic: 7,  majorBase: 10, isMinor: true, preferFlat: true,  accType: 'flat',  accCount: 2, relativeKey: 'Bb', label: 'Gm 小調 (關係大調 Bb)' },
+    'G#m': { tonic: 8,  majorBase: 11, isMinor: true, preferFlat: false, accType: 'sharp', accCount: 5, relativeKey: 'B',  label: 'G#m 小調 (關係大調 B)' },
+    'Abm': { tonic: 8,  majorBase: 11, isMinor: true, preferFlat: true,  accType: 'flat',  accCount: 7, relativeKey: 'Cb', label: 'Abm 小調 (關係大調 Cb)' }
   };
 
   // ============================================================================
@@ -519,6 +527,73 @@
   }
 
   /**
+   * 取得指定調性的完整升降記號、音階與和聲小調導音提示（供新調性提示面板顯示）
+   * @param {string} keyName - 調性名稱，例如 "Cm", "Fm", "D", "Am", "Eb"
+   */
+  function getKeySignatureDetails(keyName) {
+    const info = getKeyInfo(keyName);
+    const count = info.accCount || 0;
+    const type = info.accType || 'none';
+
+    let accidentalsEnglish = [];
+    let accidentalsFixedNumber = [];
+    let accidentalsSolfege = [];
+
+    if (type === 'sharp') {
+      accidentalsEnglish = ORDER_OF_SHARPS_ENG.slice(0, count);
+      accidentalsFixedNumber = ORDER_OF_SHARPS_NUM.slice(0, count);
+      accidentalsSolfege = ORDER_OF_SHARPS_SOLFEGE.slice(0, count);
+    } else if (type === 'flat') {
+      accidentalsEnglish = ORDER_OF_FLATS_ENG.slice(0, count);
+      accidentalsFixedNumber = ORDER_OF_FLATS_NUM.slice(0, count);
+      accidentalsSolfege = ORDER_OF_FLATS_SOLFEGE.slice(0, count);
+    }
+
+    // 計算該調性的自然音階 (大調: 0,2,4,5,7,9,11; 自然小調: 0,2,3,5,7,8,10)
+    const scaleIntervals = info.isMinor ? [0, 2, 3, 5, 7, 8, 10] : [0, 2, 4, 5, 7, 9, 11];
+    const scaleEnglish = scaleIntervals.map(iv => formatPitchToEnglish(info.tonic + iv, info.preferFlat));
+    const scaleFixedNumber = scaleIntervals.map(iv => formatPitchToFixedNumber(info.tonic + iv, info.preferFlat));
+
+    // 若為小調，額外提示和聲小調的導音 (即 37 / 五級屬七和弦的三音會升高半音)
+    let harmonicMinorNote = null;
+    if (info.isMinor) {
+      const leadingTonePc = mod12(info.tonic + 11);
+      const dominantRootPc = mod12(info.tonic + 7);
+      const leadingEng = formatPitchToEnglish(leadingTonePc, false);
+      const leadingNum = formatPitchToFixedNumber(leadingTonePc, false);
+      const domChordEng = `${formatPitchToEnglish(dominantRootPc, info.preferFlat)}7`;
+      harmonicMinorNote = `小調五級屬七和弦 (${domChordEng} / 級數 37) 導音會臨時升高半音彈：${leadingEng} (${leadingNum})`;
+    }
+
+    // 組合友善摘要文字
+    let badgeText = '無升降記號 (全白鍵)';
+    let detailText = '自然音階皆為白鍵';
+    if (type === 'sharp') {
+      badgeText = `${count} 個升記號 (${count}#)`;
+      detailText = accidentalsEnglish.map((eng, i) => `${eng} (${accidentalsFixedNumber[i]})`).join('、');
+    } else if (type === 'flat') {
+      badgeText = `${count} 個降記號 (${count}b)`;
+      detailText = accidentalsEnglish.map((eng, i) => `${eng} (${accidentalsFixedNumber[i]})`).join('、');
+    }
+
+    return {
+      keyLabel: info.label,
+      isMinor: info.isMinor,
+      relativeKey: info.relativeKey,
+      accidentalType: type,          // 'none' | 'sharp' | 'flat'
+      accidentalCount: count,        // 0 ~ 7
+      badgeText,                     // 如 "3 個降記號 (3b)" 或 "2 個升記號 (2#)"
+      detailText,                    // 如 "Bb (b7)、Eb (b3)、Ab (b6)"
+      accidentalsEnglish,            // 如 ['Bb', 'Eb', 'Ab']
+      accidentalsFixedNumber,        // 如 ['b7', 'b3', 'b6']
+      accidentalsSolfege,            // 如 ['降Si (b7)', '降Mi (b3)', '降La (b6)']
+      scaleEnglish,                  // 如 ['C', 'D', 'Eb', 'F', 'G', 'Ab', 'Bb']
+      scaleFixedNumber,              // 如 ['1', '2', 'b3', '4', '5', 'b6', 'b7']
+      harmonicMinorNote              // 小調導音提示
+    };
+  }
+
+  /**
    * 根據目標調性與和弦屬性，智慧決定某個半音 (0~11) 應該顯示為 # 還是 b
    * 例如在 Cm 調 (preferFlat=true) 中，G7 的三音 B (11) 是自然音，AbM7 的根音 8 顯示為 Ab (b6)；
    * 而在 Am 調中，E7 的三音 8 顯示為 G# (#5)。
@@ -700,6 +775,7 @@
     transposeChord,
     getChordNotes,
     getKeyInfo,
+    getKeySignatureDetails,
     formatPitchToEnglish,
     formatPitchToFixedNumber
   };
