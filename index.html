@@ -233,6 +233,81 @@
           </div>
         </div>
 
+        <!-- T2-3：原譜覆蓋標籤樣式、整頁位置微調、新增模式與點選和弦組成音/鋼琴聯動面板 -->
+        <div class="sheet-tag-controls-panel">
+          <div class="tag-controls-row">
+            <!-- 新增模式與顯示開關 -->
+            <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+              <button type="button" id="btnToggleAddChordMode" class="btn">
+                ➕ 點擊譜面新增和弦：關閉
+              </button>
+              <button type="button" id="btnToggleTagsVisible" class="btn btn-emerald">
+                👁️ 覆蓋標籤：顯示中 (點此對照原譜)
+              </button>
+              <button type="button" id="btnResetPageChords" class="btn" title="將本頁和弦與座標恢復為初始辨識狀態">
+                ↩️ 重置本頁座標
+              </button>
+            </div>
+
+            <!-- 標籤外觀樣式與字體大小 -->
+            <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+              <label for="tagStyleSelect" style="font-size: 0.82rem; color: #94a3b8; font-weight: 700;">🎨 標籤樣式：</label>
+              <select id="tagStyleSelect">
+                <option value="red-box">🔴 白底紅字紅框 (預設醒目)</option>
+                <option value="clean-cover">⚪ 純白底紅字無框 (直接覆蓋原譜字)</option>
+                <option value="blue-box">🔵 白底藍字藍框 (清爽高對比)</option>
+                <option value="yellow-box">🟡 黃底黑字黑框 (螢光筆標示)</option>
+              </select>
+
+              <label for="tagSizeSelect" style="font-size: 0.82rem; color: #94a3b8; font-weight: 700;">🔠 字體：</label>
+              <select id="tagSizeSelect">
+                <option value="12">小 (12px)</option>
+                <option value="15" selected>標準 (15px)</option>
+                <option value="18">大 (18px)</option>
+                <option value="22">特大 (22px)</option>
+              </select>
+            </div>
+
+            <!-- 整頁標籤批次位置微調 -->
+            <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+              <span style="font-size: 0.82rem; color: #94a3b8; font-weight: 700;">📐 全頁位置微調：</span>
+              <button type="button" id="btnNudgeUp" class="btn" style="padding: 4px 8px;" title="本頁所有標籤往上微調">⬆️ 上移</button>
+              <button type="button" id="btnNudgeDown" class="btn" style="padding: 4px 8px;" title="本頁所有標籤往下微調">⬇️ 下移</button>
+              <button type="button" id="btnNudgeLeft" class="btn" style="padding: 4px 8px;" title="本頁所有標籤往左微調">⬅️ 左移</button>
+              <button type="button" id="btnNudgeRight" class="btn" style="padding: 4px 8px;" title="本頁所有標籤往右微調">➡️ 右移</button>
+            </div>
+          </div>
+
+          <!-- 點擊任一和弦標籤時的「手動修改 ＋ 組成音明細 ＋ 內嵌鋼琴鍵盤」即時聯動面板 -->
+          <div id="sheetSelectedChordInspector" class="sheet-selected-inspector" style="display: none;">
+            <div class="inspector-top-row">
+              <!-- 左側：手動修改原譜和弦或刪除此標籤 -->
+              <div class="inspector-edit-group">
+                <span style="font-size: 0.82rem; font-weight: 800; color: #fde68a;">✏️ 修改選取標籤 (或直接於譜上拖曳位置)：</span>
+                <input type="text" id="inspectorRawChordInput" style="width: 110px; font-weight: 800;" placeholder="原譜和弦" />
+                <button type="button" id="btnInspectorUpdateChord" class="btn btn-primary" style="padding: 5px 10px;">✅ 更新和弦</button>
+                <button type="button" id="btnInspectorDeleteChord" class="btn" style="padding: 5px 10px; color: #fda4af; border-color: #f43f5e;">🗑️ 刪除標籤</button>
+              </div>
+
+              <!-- 中間：該和弦轉調結果與組成音即時資訊 -->
+              <div id="inspectorVoicingSummary" class="inspector-voicing-summary">
+                <!-- 由 js/app.js 動態渲染 -->
+              </div>
+
+              <!-- 右側：發聲與展開/收合內嵌鋼琴鍵盤 -->
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <button type="button" id="btnInspectorPlayAudio" class="btn btn-emerald" style="padding: 5px 10px;">🔊 試聽</button>
+                <button type="button" id="btnToggleInlinePiano" class="btn btn-amber" style="padding: 5px 10px;">🎹 顯示/隱藏鋼琴鍵盤</button>
+              </div>
+            </div>
+
+            <!-- 內嵌於琴譜上方的互動鋼琴鍵盤 (點擊譜上和弦即可直接對照黑白鍵位置) -->
+            <div id="sheetInlinePianoWrapper" style="margin-top: 10px; display: block;">
+              <div id="sheetInlinePianoContainer" class="piano-stage" style="padding: 12px;"></div>
+            </div>
+          </div>
+        </div>
+
         <!-- 多頁切換與縮放控制工具列 -->
         <div class="sheet-viewer-toolbar">
           <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">

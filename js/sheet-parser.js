@@ -245,6 +245,32 @@
     return Boolean(BUILTIN_SAMPLE_RECOGNITION[key]);
   }
 
+  /**
+   * 清除指定頁面的自訂修改快取，若為內建範例則恢復為預校對之初始座標
+   */
+  function resetPageCache(fileName, pageNumber) {
+    const key = makeCacheKey(fileName, pageNumber);
+    memoryCache.delete(key);
+
+    if (typeof localStorage !== 'undefined') {
+      try {
+        const rawStore = localStorage.getItem(STORAGE_KEY_CACHE);
+        if (rawStore) {
+          const parsedStore = JSON.parse(rawStore);
+          delete parsedStore[key];
+          localStorage.setItem(STORAGE_KEY_CACHE, JSON.stringify(parsedStore));
+        }
+      } catch (e) {
+        // ignore
+      }
+    }
+
+    if (BUILTIN_SAMPLE_RECOGNITION[key]) {
+      return JSON.parse(JSON.stringify(BUILTIN_SAMPLE_RECOGNITION[key]));
+    }
+    return null;
+  }
+
   // ============================================================================
   // 4. 電子琴簡譜專用 Gemini Vision Prompt 與 API 呼叫引擎
   // ============================================================================
@@ -452,6 +478,7 @@
     getCachedRecognition,
     saveCachedRecognition,
     hasBuiltInSampleCache,
+    resetPageCache,
     buildSheetVisionPrompt,
     sanitizeAndValidateChords,
     recognizeSheetPage

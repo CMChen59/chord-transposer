@@ -132,7 +132,14 @@ C CM7 | C7 | Em | bE | Dm | Em | Fm | Gsus4 | C`
     degreeFilter: 'common', // 'common' | 'all' | '1' ~ '7'
     activePresetKey: 'changHuan',
     selectedRawChord: '6m',
-    selectedCardIndex: null
+    selectedCardIndex: null,
+    // T2-3 原譜覆蓋標籤互動與樣式狀態
+    selectedSheetTagId: null,
+    addChordOnSheetMode: false,
+    tagsVisible: true,
+    tagStyle: 'red-box', // 'red-box' | 'clean-cover' | 'blue-box' | 'yellow-box'
+    tagFontSize: 15,
+    inlinePianoVisible: true
   };
 
   // ============================================================================
@@ -184,6 +191,25 @@ C CM7 | C7 | Em | bE | Dm | Em | Fm | Gsus4 | C`
     els.btnSaveApiKey = document.getElementById('btnSaveApiKey');
     els.btnClearApiKey = document.getElementById('btnClearApiKey');
     els.recognizedChordsBar = document.getElementById('recognizedChordsBar');
+    // T2-3 覆蓋標籤控制與點選組成音/鋼琴聯動面板
+    els.btnToggleAddChordMode = document.getElementById('btnToggleAddChordMode');
+    els.btnToggleTagsVisible = document.getElementById('btnToggleTagsVisible');
+    els.btnResetPageChords = document.getElementById('btnResetPageChords');
+    els.tagStyleSelect = document.getElementById('tagStyleSelect');
+    els.tagSizeSelect = document.getElementById('tagSizeSelect');
+    els.btnNudgeUp = document.getElementById('btnNudgeUp');
+    els.btnNudgeDown = document.getElementById('btnNudgeDown');
+    els.btnNudgeLeft = document.getElementById('btnNudgeLeft');
+    els.btnNudgeRight = document.getElementById('btnNudgeRight');
+    els.sheetSelectedChordInspector = document.getElementById('sheetSelectedChordInspector');
+    els.inspectorRawChordInput = document.getElementById('inspectorRawChordInput');
+    els.btnInspectorUpdateChord = document.getElementById('btnInspectorUpdateChord');
+    els.btnInspectorDeleteChord = document.getElementById('btnInspectorDeleteChord');
+    els.inspectorVoicingSummary = document.getElementById('inspectorVoicingSummary');
+    els.btnInspectorPlayAudio = document.getElementById('btnInspectorPlayAudio');
+    els.btnToggleInlinePiano = document.getElementById('btnToggleInlinePiano');
+    els.sheetInlinePianoWrapper = document.getElementById('sheetInlinePianoWrapper');
+    els.sheetInlinePianoContainer = document.getElementById('sheetInlinePianoContainer');
     els.btnSheetPrevPage = document.getElementById('btnSheetPrevPage');
     els.sheetPageIndicator = document.getElementById('sheetPageIndicator');
     els.btnSheetNextPage = document.getElementById('btnSheetNextPage');
@@ -705,6 +731,74 @@ C CM7 | C7 | Em | bE | Dm | Em | Fm | Gsus4 | C`
   }
 
   /**
+   * 將當前頁面的和弦變更寫回本機快取 (保存拖曳座標或手動修改結果)
+   */
+  function persistCurrentPageChords() {
+    if (!window.SheetViewer || !window.SheetParser) return;
+    const vState = SheetViewer.getState();
+    const pageObj = SheetViewer.getCurrentPage();
+    if (!pageObj) return;
+
+    SheetParser.saveCachedRecognition(vState.fileName, pageObj.pageNumber, {
+      detectedSourceKey: state.sourceKey,
+      detectedTargetKey: state.targetKey,
+      chords: pageObj.chords || []
+    });
+  }
+
+  /**
+   * 渲染琴譜上方的「點選和弦：手動修改 ＋ 組成音明細 ＋ 內嵌鋼琴鍵盤」即時聯動面板 (T2-3)
+   */
+  function renderSheetSelectedInspector(triggerAudio = false) {
+    if (!els.sheetSelectedChordInspector || !window.SheetViewer) return;
+    const pageObj = SheetViewer.getCurrentPage();
+    if (!pageObj || !Array.isArray(pageObj.chords) || !state.selectedSheetTagId) {
+      els.sheetSelectedChordInspector.style.display = 'none';
+      return;
+    }
+
+    const chordItem = pageObj.chords.find(c => c.id === state.selectedSheetTagId);
+    if (!chordItem) {
+      els.sheetSelectedChordInspector.style.display = 'none';
+      return;
+    }
+
+    els.sheetSelectedChordInspector.style.display = 'block';
+    if (els.inspectorRawChordInput && document.activeElement !== els.inspectorRawChordInput) {
+      els.inspectorRawChordInput.value = chordItem.raw;
+    }
+
+    const tr = MusicTheory.transposeChord(chordItem.raw, state.sourceKey, state.targetKey);
+    if (!tr) {
+      els.inspectorVoicingSummary.innerHTML = `<span style="color:#f43f5e; font-weight:700;">⚠️ 無法解析「${chordItem.raw}」，請於左側輸入正確和弦格式</span>`;
+      return;
+    }
+
+    els.inspectorVoicingSummary.innerHTML = `
+      <span>原譜 <strong style="color:#cbd5e1;">${chordItem.raw}</strong> ➔ 新調 <strong style="color:#34d399; font-size:1.18rem;">${tr.englishChord}</strong> <span style="color:#fbbf24; font-weight:700;">(數字: ${tr.fixedNumberChord})</span></span>
+      <span>｜ 英文組成音: <strong style="color:#60a5fa;">${tr.notes.english.join(' - ')}</strong></span>
+      <span>｜ 簡譜組成音: <strong style="color:#fbbf24;">${tr.notes.fixedNumber.join(' - ')}</strong></span>
+      <span>｜ 左手Bass: <strong style="color:#f59e0b;">${tr.notes.bassEnglish}(${tr.notes.bassFixedNumber})</strong></span>
+    `;
+
+    if (els.sheetInlinePianoWrapper) {
+      els.sheetInlinePianoWrapper.style.display = state.inlinePianoVisible ? 'block' : 'none';
+    }
+    if (els.sheetInlinePianoContainer) {
+      PianoVisualizer.mountPiano(els.sheetInlinePianoContainer, tr);
+    }
+
+    // 同步更新模式三的單一和弦查詢輸入框
+    if (els.chordLookupInput) {
+      els.chordLookupInput.value = chordItem.raw;
+    }
+
+    if (triggerAudio && state.audioEnabled) {
+      PianoVisualizer.playChordAudio(tr);
+    }
+  }
+
+  /**
    * 將當前琴譜頁已辨識出的和弦陣列 (pageObj.chords) 依據目標調性與顯示模式，
    * 渲染為上方和弦對照膠囊列 (#recognizedChordsBar) 與琴譜覆蓋標籤 (#sheetOverlayLayer)
    */
@@ -718,7 +812,15 @@ C CM7 | C7 | Em | bE | Dm | Em | Fm | Gsus4 | C`
         els.recognizedChordsBar.style.display = 'none';
         els.recognizedChordsBar.innerHTML = '';
       }
+      if (els.sheetSelectedChordInspector) {
+        els.sheetSelectedChordInspector.style.display = 'none';
+      }
       return;
+    }
+
+    // 若尚未選取任何標籤，預設選取第一個和弦以展示鋼琴與組成音
+    if (!state.selectedSheetTagId || !pageObj.chords.some(c => c.id === state.selectedSheetTagId)) {
+      state.selectedSheetTagId = pageObj.chords[0].id;
     }
 
     // 1. 渲染上方已辨識和弦膠囊清單
@@ -729,8 +831,10 @@ C CM7 | C7 | Em | bE | Dm | Em | Fm | Gsus4 | C`
         const tgtText = tr
           ? (state.displayMode === 'number' ? tr.fixedNumberChord : tr.englishChord)
           : ch.raw;
+        const isSel = ch.id === state.selectedSheetTagId;
+        const borderStyle = isSel ? 'border-color:#60a5fa; background:rgba(59,130,246,0.22);' : '';
         return `
-          <span class="rec-chord-pill" data-raw="${ch.raw}" title="點擊試聽並查看組成音">
+          <span class="rec-chord-pill" data-id="${ch.id}" data-raw="${ch.raw}" style="${borderStyle}" title="點擊查看鋼琴組成音或修改">
             <span style="color:#94a3b8;">${ch.raw}</span>
             <span>➔</span>
             <strong style="color:#34d399;">${tgtText}</strong>
@@ -739,23 +843,24 @@ C CM7 | C7 | Em | bE | Dm | Em | Fm | Gsus4 | C`
 
       els.recognizedChordsBar.innerHTML = `
         <span style="font-size:0.82rem; font-weight:800; color:#60a5fa; width:100%;">
-          🎯 本頁已辨識出 ${pageObj.chords.length} 個和弦標記（切換頂部調性或顯示模式可 0 Token 瞬間換算，點擊任一和弦可發聲試聽）：
+          🎯 本頁共 ${pageObj.chords.length} 個和弦標記（點擊任一標籤可看鋼琴組成音與修改文字，在譜面上按住滑鼠可直接拖曳微調位置）：
         </span>
         ${pillsHTML}
       `;
 
       els.recognizedChordsBar.querySelectorAll('.rec-chord-pill').forEach(pill => {
         pill.addEventListener('click', () => {
-          const raw = pill.getAttribute('data-raw');
-          const tr = MusicTheory.transposeChord(raw, state.sourceKey, state.targetKey);
-          if (tr && state.audioEnabled) {
-            PianoVisualizer.playChordAudio(tr);
-          }
+          state.selectedSheetTagId = pill.getAttribute('data-id');
+          renderSheetOverlayAndChordsBar();
+          renderSheetSelectedInspector(true);
         });
       });
     }
 
     // 2. 渲染琴譜畫布上的轉調和弦標籤 (#sheetOverlayLayer)
+    els.sheetOverlayLayer.style.display = state.tagsVisible ? 'block' : 'none';
+    els.sheetOverlayLayer.classList.toggle('add-chord-cursor', state.addChordOnSheetMode);
+
     const tagsHTML = pageObj.chords.map((ch) => {
       const tr = MusicTheory.transposeChord(ch.raw, state.sourceKey, state.targetKey);
       let labelText = ch.raw;
@@ -769,14 +874,17 @@ C CM7 | C7 | Em | bE | Dm | Em | Fm | Gsus4 | C`
         } else {
           labelText = tr.englishChord;
         }
-        tooltipText = `原譜: ${ch.raw} ➔ 新調: ${tr.englishChord} (${tr.fixedNumberChord}) | 組成音: ${tr.notes.english.join('-')} (${tr.notes.fixedNumber.join('-')})`;
+        tooltipText = `原譜: ${ch.raw} ➔ 新調: ${tr.englishChord} (${tr.fixedNumberChord}) | 組成音: ${tr.notes.english.join('-')} (${tr.notes.fixedNumber.join('-')}) [可按住拖曳位置]`;
       }
 
+      const isSelected = ch.id === state.selectedSheetTagId;
+      const cls = `sheet-chord-tag style-${state.tagStyle} ${isSelected ? 'selected' : ''}`;
+
       return `
-        <div class="sheet-chord-tag"
+        <div class="${cls}"
              data-id="${ch.id}"
              data-raw="${ch.raw}"
-             style="left: ${ch.xPercent}%; top: ${ch.yPercent}%;"
+             style="left: ${ch.xPercent}%; top: ${ch.yPercent}%; font-size: ${state.tagFontSize}px;"
              title="${tooltipText}">
           ${labelText}
         </div>`;
@@ -784,16 +892,59 @@ C CM7 | C7 | Em | bE | Dm | Em | Fm | Gsus4 | C`
 
     els.sheetOverlayLayer.innerHTML = tagsHTML;
 
+    // 3. 為每個標籤綁定「點擊選取 (連動鋼琴組成音)」與「按住滑鼠直接拖曳位置」事件
     els.sheetOverlayLayer.querySelectorAll('.sheet-chord-tag').forEach(tag => {
-      tag.addEventListener('click', (e) => {
+      tag.addEventListener('mousedown', (e) => {
+        if (e.button !== 0) return;
         e.stopPropagation();
-        const raw = tag.getAttribute('data-raw');
-        const tr = MusicTheory.transposeChord(raw, state.sourceKey, state.targetKey);
-        if (tr && state.audioEnabled) {
-          PianoVisualizer.playChordAudio(tr);
-        }
+
+        const tagId = tag.getAttribute('data-id');
+        const chordItem = pageObj.chords.find(c => c.id === tagId);
+        if (!chordItem) return;
+
+        state.selectedSheetTagId = tagId;
+
+        const rect = els.sheetOverlayLayer.getBoundingClientRect();
+        const startX = e.clientX;
+        const startY = e.clientY;
+        const origXPercent = chordItem.xPercent;
+        const origYPercent = chordItem.yPercent;
+        let hasDragged = false;
+
+        const onMouseMove = (moveEvt) => {
+          const dx = moveEvt.clientX - startX;
+          const dy = moveEvt.clientY - startY;
+          if (Math.abs(dx) > 2 || Math.abs(dy) > 2) {
+            hasDragged = true;
+          }
+          if (!hasDragged || rect.width === 0 || rect.height === 0) return;
+
+          const newX = Math.max(1, Math.min(99, origXPercent + (dx / rect.width) * 100));
+          const newY = Math.max(1, Math.min(99, origYPercent + (dy / rect.height) * 100));
+          chordItem.xPercent = Math.round(newX * 10) / 10;
+          chordItem.yPercent = Math.round(newY * 10) / 10;
+
+          tag.style.left = `${chordItem.xPercent}%`;
+          tag.style.top = `${chordItem.yPercent}%`;
+        };
+
+        const onMouseUp = () => {
+          window.removeEventListener('mousemove', onMouseMove);
+          window.removeEventListener('mouseup', onMouseUp);
+
+          if (hasDragged) {
+            persistCurrentPageChords();
+          }
+          renderSheetOverlayAndChordsBar();
+          renderSheetSelectedInspector(!hasDragged);
+        };
+
+        window.addEventListener('mousemove', onMouseMove);
+        window.addEventListener('mouseup', onMouseUp);
       });
     });
+
+    renderSheetSelectedInspector(false);
   }
 
   /**
@@ -882,6 +1033,7 @@ C CM7 | C7 | Em | bE | Dm | Em | Fm | Gsus4 | C`
         state.displayMode = btn.getAttribute('data-mode');
         renderReferenceTable();
         renderTransposedSheet();
+        renderSheetOverlayAndChordsBar();
       });
     });
 
@@ -1042,6 +1194,172 @@ C CM7 | C7 | Em | bE | Dm | Em | Fm | Gsus4 | C`
           els.targetKeySelect.value = state.targetKey;
           updateAllViews();
           await SheetViewer.loadBuiltInSample('kawaJpg');
+        });
+      }
+
+      // ======================================================================
+      // T2-3：原譜覆蓋標籤互動微調、新增/修改/刪除與鋼琴聯動事件綁定
+      // ======================================================================
+
+      // 1. 點擊譜面新增和弦模式開關
+      if (els.btnToggleAddChordMode) {
+        els.btnToggleAddChordMode.addEventListener('click', () => {
+          state.addChordOnSheetMode = !state.addChordOnSheetMode;
+          els.btnToggleAddChordMode.textContent = state.addChordOnSheetMode
+            ? '➕ 點擊譜面新增和弦：開啟中 (請點譜面任意位置)'
+            : '➕ 點擊譜面新增和弦：關閉';
+          els.btnToggleAddChordMode.className = state.addChordOnSheetMode ? 'btn btn-amber' : 'btn';
+          renderSheetOverlayAndChordsBar();
+        });
+      }
+
+      // 在譜面空白處點擊以新增和弦標籤
+      if (els.sheetOverlayLayer) {
+        els.sheetOverlayLayer.addEventListener('click', (e) => {
+          if (!state.addChordOnSheetMode) return;
+          if (e.target !== els.sheetOverlayLayer) return;
+
+          const pageObj = SheetViewer.getCurrentPage();
+          if (!pageObj) return;
+
+          const rect = els.sheetOverlayLayer.getBoundingClientRect();
+          if (rect.width === 0 || rect.height === 0) return;
+
+          const xPercent = Math.round(((e.clientX - rect.left) / rect.width) * 1000) / 10;
+          const yPercent = Math.round(((e.clientY - rect.top) / rect.height) * 1000) / 10;
+
+          const defaultRaw = state.sourceKey.endsWith('m') ? '6m' : 'C';
+          const newId = `user_tag_${Date.now().toString(36)}`;
+          if (!Array.isArray(pageObj.chords)) pageObj.chords = [];
+
+          pageObj.chords.push({
+            id: newId,
+            raw: defaultRaw,
+            xPercent: Math.max(1, Math.min(99, xPercent)),
+            yPercent: Math.max(1, Math.min(99, yPercent)),
+            line: 1
+          });
+
+          state.selectedSheetTagId = newId;
+          persistCurrentPageChords();
+          renderSheetOverlayAndChordsBar();
+          renderSheetSelectedInspector(true);
+
+          if (els.inspectorRawChordInput) {
+            els.inspectorRawChordInput.focus();
+            els.inspectorRawChordInput.select();
+          }
+        });
+      }
+
+      // 2. 顯示/隱藏覆蓋標籤 (方便臨時看原譜底字對照)
+      if (els.btnToggleTagsVisible) {
+        els.btnToggleTagsVisible.addEventListener('click', () => {
+          state.tagsVisible = !state.tagsVisible;
+          els.btnToggleTagsVisible.textContent = state.tagsVisible
+            ? '👁️ 覆蓋標籤：顯示中 (點此對照原譜)'
+            : '🙈 覆蓋標籤：已隱藏 (顯示原譜)';
+          els.btnToggleTagsVisible.className = state.tagsVisible ? 'btn btn-emerald' : 'btn';
+          renderSheetOverlayAndChordsBar();
+        });
+      }
+
+      // 3. 重置本頁座標為初始辨識狀態
+      if (els.btnResetPageChords) {
+        els.btnResetPageChords.addEventListener('click', () => {
+          const vState = SheetViewer.getState();
+          const pageObj = SheetViewer.getCurrentPage();
+          if (!pageObj || !window.SheetParser) return;
+
+          const restored = SheetParser.resetPageCache(vState.fileName, pageObj.pageNumber);
+          pageObj.chords = restored && Array.isArray(restored.chords) ? restored.chords : [];
+          state.selectedSheetTagId = pageObj.chords[0] ? pageObj.chords[0].id : null;
+          renderSheetOverlayAndChordsBar();
+        });
+      }
+
+      // 4. 標籤樣式與字體大小切換
+      if (els.tagStyleSelect) {
+        els.tagStyleSelect.addEventListener('change', () => {
+          state.tagStyle = els.tagStyleSelect.value;
+          renderSheetOverlayAndChordsBar();
+        });
+      }
+      if (els.tagSizeSelect) {
+        els.tagSizeSelect.addEventListener('change', () => {
+          state.tagFontSize = parseInt(els.tagSizeSelect.value, 10) || 15;
+          renderSheetOverlayAndChordsBar();
+        });
+      }
+
+      // 5. 全頁標籤批次位置微調 (上/下/左/右)
+      function nudgeAllPageChords(dx, dy) {
+        const pageObj = SheetViewer.getCurrentPage();
+        if (!pageObj || !Array.isArray(pageObj.chords)) return;
+        pageObj.chords.forEach(c => {
+          c.xPercent = Math.round(Math.max(1, Math.min(99, c.xPercent + dx)) * 10) / 10;
+          c.yPercent = Math.round(Math.max(1, Math.min(99, c.yPercent + dy)) * 10) / 10;
+        });
+        persistCurrentPageChords();
+        renderSheetOverlayAndChordsBar();
+      }
+
+      if (els.btnNudgeUp) els.btnNudgeUp.addEventListener('click', () => nudgeAllPageChords(0, -0.6));
+      if (els.btnNudgeDown) els.btnNudgeDown.addEventListener('click', () => nudgeAllPageChords(0, 0.6));
+      if (els.btnNudgeLeft) els.btnNudgeLeft.addEventListener('click', () => nudgeAllPageChords(-0.6, 0));
+      if (els.btnNudgeRight) els.btnNudgeRight.addEventListener('click', () => nudgeAllPageChords(0.6, 0));
+
+      // 6. 選取標籤之原譜和弦文字修改與刪除
+      function applySelectedTagChordEdit() {
+        const pageObj = SheetViewer.getCurrentPage();
+        if (!pageObj || !Array.isArray(pageObj.chords) || !state.selectedSheetTagId) return;
+        const newRaw = (els.inspectorRawChordInput.value || '').trim();
+        if (!newRaw) return;
+
+        const chordItem = pageObj.chords.find(c => c.id === state.selectedSheetTagId);
+        if (!chordItem) return;
+
+        chordItem.raw = newRaw;
+        persistCurrentPageChords();
+        renderSheetOverlayAndChordsBar();
+        renderSheetSelectedInspector(true);
+      }
+
+      if (els.btnInspectorUpdateChord) {
+        els.btnInspectorUpdateChord.addEventListener('click', applySelectedTagChordEdit);
+      }
+      if (els.inspectorRawChordInput) {
+        els.inspectorRawChordInput.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            applySelectedTagChordEdit();
+          }
+        });
+      }
+
+      if (els.btnInspectorDeleteChord) {
+        els.btnInspectorDeleteChord.addEventListener('click', () => {
+          const pageObj = SheetViewer.getCurrentPage();
+          if (!pageObj || !Array.isArray(pageObj.chords) || !state.selectedSheetTagId) return;
+          pageObj.chords = pageObj.chords.filter(c => c.id !== state.selectedSheetTagId);
+          state.selectedSheetTagId = pageObj.chords[0] ? pageObj.chords[0].id : null;
+          persistCurrentPageChords();
+          renderSheetOverlayAndChordsBar();
+        });
+      }
+
+      if (els.btnInspectorPlayAudio) {
+        els.btnInspectorPlayAudio.addEventListener('click', () => {
+          renderSheetSelectedInspector(true);
+        });
+      }
+
+      if (els.btnToggleInlinePiano) {
+        els.btnToggleInlinePiano.addEventListener('click', () => {
+          state.inlinePianoVisible = !state.inlinePianoVisible;
+          if (els.sheetInlinePianoWrapper) {
+            els.sheetInlinePianoWrapper.style.display = state.inlinePianoVisible ? 'block' : 'none';
+          }
         });
       }
     }

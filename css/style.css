@@ -608,7 +608,7 @@ select:focus, input[type="text"]:focus, textarea:focus {
   transform: translateY(-1px);
 }
 
-/* 原譜覆蓋層上的轉調和弦標籤 */
+/* 原譜覆蓋層上的轉調和弦標籤 (支援 4 種主題與滑鼠拖曳微調) */
 .sheet-chord-tag {
   position: absolute;
   transform: translate(-50%, -50%);
@@ -616,23 +616,114 @@ select:focus, input[type="text"]:focus, textarea:focus {
   color: #dc2626;
   border: 2px solid #dc2626;
   border-radius: 6px;
-  padding: 1px 6px;
-  font-size: 0.92rem;
+  padding: 1px 7px;
+  font-size: 15px;
   font-weight: 900;
   line-height: 1.25;
   white-space: nowrap;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
-  cursor: pointer;
+  cursor: grab;
   user-select: none;
   z-index: 10;
-  transition: transform 0.1s ease, box-shadow 0.1s ease;
+  transition: box-shadow 0.1s ease;
+}
+
+.sheet-chord-tag:active {
+  cursor: grabbing;
 }
 
 .sheet-chord-tag:hover {
-  transform: translate(-50%, -50%) scale(1.12);
-  background: #fef2f2;
-  box-shadow: 0 4px 12px rgba(220, 38, 38, 0.45);
-  z-index: 20;
+  box-shadow: 0 4px 12px rgba(220, 38, 38, 0.5);
+  z-index: 25;
+}
+
+.sheet-chord-tag.selected {
+  outline: 3px solid #3b82f6;
+  outline-offset: 2px;
+  box-shadow: 0 0 0 5px rgba(59, 130, 246, 0.35);
+  z-index: 30;
+}
+
+/* 4 種覆蓋標籤外觀主題 */
+.sheet-chord-tag.style-red-box {
+  background: #ffffff;
+  color: #dc2626;
+  border: 2px solid #dc2626;
+}
+
+.sheet-chord-tag.style-clean-cover {
+  background: #ffffff;
+  color: #dc2626;
+  border: 1px solid rgba(255, 255, 255, 0.95);
+  box-shadow: 0 0 4px 3px #ffffff;
+  border-radius: 3px;
+}
+
+.sheet-chord-tag.style-blue-box {
+  background: #ffffff;
+  color: #1d4ed8;
+  border: 2px solid #2563eb;
+}
+
+.sheet-chord-tag.style-yellow-box {
+  background: #fef08a;
+  color: #111827;
+  border: 2px solid #ca8a04;
+}
+
+/* T2-3：標籤外觀控制與選取和弦組成音/鋼琴聯動面板 */
+.sheet-tag-controls-panel {
+  background: var(--bg-input);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 12px 16px;
+  margin-bottom: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.tag-controls-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.sheet-selected-inspector {
+  background: linear-gradient(135deg, rgba(30, 41, 59, 0.96) 0%, rgba(15, 23, 42, 0.98) 100%);
+  border: 1px solid #60a5fa;
+  border-left: 4px solid #3b82f6;
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+}
+
+.inspector-top-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.inspector-edit-group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.inspector-voicing-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  font-size: 0.9rem;
+}
+
+#sheetOverlayLayer.add-chord-cursor {
+  cursor: crosshair;
 }
 
 /* 新調性升降記號與音階橫幅面板 */
