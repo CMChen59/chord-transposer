@@ -126,3 +126,15 @@
   5. **修復 `file://` 下 PDF.js Fake Worker 載入錯誤 (`ISSUE-005`)**：
      - 實測發現 `file://` 環境下瀏覽器會強制使 PDF.js 進入 Fake Worker（主執行緒）模式，原先以 `Blob(importScripts)` 設定 `workerSrc` 會在主執行緒因找不到 `importScripts` 而報錯 `WorkerMessageHandler undefined`。
      - 改於 `index.html` 直接以 `<script>` 引入 `pdf.worker.min.js`，讓全域 `window.pdfjsWorker.WorkerMessageHandler` 直接就緒，徹底解決 `file://` 本地開啟 PDF 的問題。
+
+---
+
+### 12. 執行任務 T2-2：Gemini Vision API 智慧抓譜整合與零重複 Token 快取 (`js/sheet-parser.js`)
+- **實作重點**：
+  1. **本機安全 API Key 管理**：於「📄 模式二」新增可展開/收合的 `⚙️ API Key 設定` 面板，支援輸入 Google Gemini API Key 與選擇模型（預設 `gemini-2.5-flash`），僅儲存於本機瀏覽器 `localStorage`，不上傳 Git。
+  2. **電子琴簡譜專用 AI Vision Prompt 與雙重驗證**：
+     - 指示 AI 精準提取「圓角方框級數和弦 (`6m`, `37-9+5`, `5m6/7b`)」與「上方英文字母和弦 (`CM7`, `Gsus4`, `bE`)」的 `(xPercent, yPercent)` 座標。
+     - 透過 `sanitizeAndValidateChords()` 結合 `MusicTheory.parseChord()` 進行二次語法過濾，100% 剔除 `R1~R8`、`Main A`、`Fill B` 等非和弦控制標記。
+  3. **零重複 Token 快取與內建範例預載座標**：
+     - 辨識結果自動存入 Memory 與 `localStorage` 快取，同一頁譜辨識 1 次即可無限次切換調性與顯示模式（0 Token）。
+     - 內建《償還_Am.pdf》(第 1 頁 19 個和弦、第 2 頁 18 個和弦) 與《川の流れのように_C.jpg》(44 個和弦) 的預先校對座標，載入範例琴譜時無須填寫 API Key 即可自動在原譜上覆蓋顯示轉調後的新和弦標籤！

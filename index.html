@@ -186,6 +186,53 @@
           </div>
         </div>
 
+        <!-- T2-2：Gemini Vision AI 智慧抓譜與 API Key 安全設定區 -->
+        <div class="ai-vision-panel">
+          <div class="ai-vision-row">
+            <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+              <button type="button" id="btnRunAiRecognize" class="btn btn-primary" disabled>
+                🤖 智慧辨識本頁和弦 (優先使用快取 / 0 Token)
+              </button>
+              <button type="button" id="btnForceAiRecognize" class="btn" disabled title="強制呼叫 Gemini Vision API 重新辨識本頁影像">
+                🔄 強制呼叫 Gemini AI 重新辨識
+              </button>
+              <span id="aiRecognizeSummary" style="font-size: 0.86rem; color: #94a3b8; font-weight: 700;">
+                請先載入琴譜以啟用和弦辨識
+              </span>
+            </div>
+
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span id="apiKeyStatusBadge" class="sheet-status-badge status-info">🔑 尚未設定 API Key</span>
+              <button type="button" id="btnToggleApiKeyBox" class="btn">⚙️ API Key 設定</button>
+            </div>
+          </div>
+
+          <!-- 可收合之 Gemini API Key 設定盒 (儲存於本機 localStorage，不上傳 Git) -->
+          <div id="apiKeyConfigBox" class="api-key-config-box" style="display: none;">
+            <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 10px;">
+              <label for="geminiApiKeyInput" style="font-size: 0.84rem; font-weight: 700; color: #fde68a;">
+                🔑 Google Gemini API Key：
+              </label>
+              <input type="password" id="geminiApiKeyInput" placeholder="貼上您的 AIzaSy... 金鑰 (僅存於本機瀏覽器 localStorage)" style="flex: 1; min-width: 260px;" />
+              <select id="geminiModelSelect" title="選擇 Gemini 視覺模型">
+                <option value="gemini-2.5-flash">gemini-2.5-flash (推薦/免費額度高)</option>
+                <option value="gemini-2.0-flash">gemini-2.0-flash</option>
+                <option value="gemini-1.5-flash">gemini-1.5-flash</option>
+              </select>
+              <button type="button" id="btnSaveApiKey" class="btn btn-emerald">💾 儲存金鑰</button>
+              <button type="button" id="btnClearApiKey" class="btn">🗑️ 清除</button>
+            </div>
+            <div style="font-size: 0.78rem; color: #94a3b8; margin-top: 6px;">
+              💡 安全性說明：您的 API Key 僅儲存在這台電腦瀏覽器的 <code>localStorage</code> 中，絕不會寫入程式碼或推送至 GitHub。內建兩份範例琴譜已包含預先校對之座標快取，免填 Key 亦可直接體驗 0 Token 瞬時辨識與轉調！
+            </div>
+          </div>
+
+          <!-- 本頁辨識出的和弦清單與轉調預覽列 -->
+          <div id="recognizedChordsBar" class="recognized-chords-bar" style="display: none;">
+            <!-- 由 js/app.js 動態渲染本頁辨識出的所有和弦與轉調對照膠囊 -->
+          </div>
+        </div>
+
         <!-- 多頁切換與縮放控制工具列 -->
         <div class="sheet-viewer-toolbar">
           <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
@@ -331,6 +378,7 @@
   <script src="js/sample-sheets-data.js"></script>
   <script src="js/music-theory.js"></script>
   <script src="js/piano-visualizer.js"></script>
+  <script src="js/sheet-parser.js"></script>
   <script src="js/sheet-viewer.js"></script>
   <script src="js/app.js"></script>
 </body>

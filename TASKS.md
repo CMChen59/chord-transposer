@@ -44,10 +44,10 @@
   - [x] 整合 `PDF.js`（搭配 Blob Worker 支援 `file://` 本地直接開啟），支援將多頁 PDF 樂譜（如《償還_Am.pdf》共 2 頁）渲染為 2 倍高清 Canvas 畫布並支援翻頁切換
   - [x] 支援 JPG / PNG 圖片譜（如《川の流れのように_C.jpg》）拖曳上傳 (Drag & Drop)、檔案瀏覽選取與無損縮放預覽 (50% ~ 175%)
   - [x] 內建兩份備份範例琴譜一鍵免選檔載入，並建立雙層對齊畫布 (`#sheetBaseCanvas` + `#sheetOverlayLayer`) 供後續 T2-2/T2-3 覆蓋和弦標籤
-- [ ] **T2-2：Gemini Vision API 智慧抓譜整合 (`sheet-parser.js`)**
-  - [ ] 提供安全的 API Key 設定介面（儲存於瀏覽器 `localStorage`）
-  - [ ] 設計針對電子琴簡譜的專用 Prompt（自動過濾 `R1~R8`、`Main A`、`Fill B` 與旋律數字，精準提取方框級數和弦與紅色英文和弦及其座標/小節位置）
-  - [ ] 實作辨識結果快取機制（同一張譜辨識 1 次即可無限次切換調性與顯示模式，不重複消耗 Token）
+- [x] **T2-2：Gemini Vision API 智慧抓譜整合 (`js/sheet-parser.js`)** *(2026-11-19)*
+  - [x] 提供安全的 API Key 與模型設定介面（儲存於瀏覽器本機 `localStorage`，絕不寫入程式碼或上傳 Git）
+  - [x] 設計針對電子琴簡譜的專用 Vision Prompt 與 `sanitizeAndValidateChords()` 雙重樂理過濾器（自動過濾 `R1~R8`、`Main A`、`Fill B` 與旋律數字，精準提取方框級數和弦與紅色英文和弦及其 `(xPercent, yPercent)` 座標）
+  - [x] 實作辨識結果快取機制（Memory + `localStorage`）與內建範例琴譜預校對座標快取（同一張譜辨識 1 次即可無限次切換調性與顯示模式，0 重複 Token 消耗）
 - [ ] **T2-3：原譜覆蓋標籤與互動檢視**
   - [ ] 在原譜和弦位置覆蓋/浮動顯示轉調後的新和弦標籤
   - [ ] 點擊譜上任一和弦標籤，即時聯動下方鋼琴鍵盤顯示組成音

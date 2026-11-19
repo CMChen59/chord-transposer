@@ -9,6 +9,7 @@
 const assert = require('assert');
 const MusicTheory = require('../js/music-theory.js');
 const PianoVisualizer = require('../js/piano-visualizer.js');
+const SheetParser = require('../js/sheet-parser.js');
 
 console.log('=== 開始執行 T1-1 核心樂理解析器測試 ===\n');
 
@@ -117,6 +118,41 @@ for (const ps of pianoSamples) {
   }).join(' | ');
 
   console.log(`  ✔ ${ps.desc} ➔ 標亮琴鍵: ${keySummary}`);
+}
+
+// 5. 測試 T2-2 Gemini Vision 樂譜解析過濾器與快取座標 (SheetParser)
+console.log('\n【測試組 5】T2-2 樂譜視覺辨識過濾器 (過濾 R1~R8/Fill/Main 雜訊) 與內建實譜座標快取驗證：');
+const mockAiRawList = [
+  { raw: '[6m]',     xPercent: 11.8, yPercent: 41.2, line: 4 },
+  { raw: 'R1',       xPercent: 32.0, yPercent: 12.0, line: 1 }, // 應被過濾
+  { raw: 'Main A',   xPercent: 18.0, yPercent: 41.0, line: 4 }, // 應被過濾
+  { raw: 'Fill B',   xPercent: 78.0, yPercent: 50.0, line: 5 }, // 應被過濾
+  { raw: '37-9+5',   xPercent: 87.6, yPercent: 52.4, line: 5 },
+  { raw: '5m6/7b',   xPercent: 89.6, yPercent: 14.6, line: 1 },
+  { raw: 'bE',       xPercent: 91.5, yPercent: 44.8, line: 5 },
+  { raw: 'R3.6',     xPercent: 25.0, yPercent: 45.0, line: 5 }  // 應被過濾
+];
+
+const filteredChords = SheetParser.sanitizeAndValidateChords(mockAiRawList, 1);
+assert.strictEqual(filteredChords.length, 4, '應精準保留 4 個合法和弦並剔除 4 個電子琴控制標記');
+assert.deepStrictEqual(
+  filteredChords.map(c => c.raw),
+  ['6m', '37-9+5', '5m6/7b', 'bE'],
+  '清洗後的和弦字串應完全正確'
+);
+console.log(`  ✔ 雜訊過濾測試通過：輸入 8 項含 R1/Main A/Fill B/R3.6 雜訊，精準保留 [${filteredChords.map(c => c.raw).join(', ')}]`);
+
+// 驗證內建範例譜座標快取中的所有和弦皆可 100% 轉調
+const sampleKeys = Object.keys(SheetParser.BUILTIN_SAMPLE_RECOGNITION);
+assert.strictEqual(sampleKeys.length, 3, '應包含《償還》第 1、2 頁與《川の流れ》共 3 頁預校對座標快取');
+for (const sk of sampleKeys) {
+  const pageData = SheetParser.BUILTIN_SAMPLE_RECOGNITION[sk];
+  assert(pageData.chords.length > 0);
+  pageData.chords.forEach(ch => {
+    const tr = MusicTheory.transposeChord(ch.raw, pageData.detectedSourceKey, pageData.detectedTargetKey);
+    assert(tr !== null, `${sk} 中的和弦 ${ch.raw} 轉調失敗`);
+  });
+  console.log(`  ✔ 預載快取 [${sk}] 共 ${pageData.chords.length} 個和弦座標與轉調驗證 100% 通過`);
 }
 
 console.log('\n🎉 所有測試案例 100% 通過！');

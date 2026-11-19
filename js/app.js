@@ -167,12 +167,23 @@ C CM7 | C7 | Em | bE | Dm | Em | Fm | Gsus4 | C`
     els.degreeFilterBtns = document.querySelectorAll('#degreeFilterBtns button');
     els.chordRefTableBody = document.getElementById('chordRefTableBody');
 
-    // 模式二 (T2-1)：琴譜 PDF / JPG 載入與高清預覽區
+    // 模式二 (T2-1 & T2-2)：琴譜 PDF / JPG 載入、高清預覽與 Gemini AI 抓譜區
     els.sheetViewerStatus = document.getElementById('sheetViewerStatus');
     els.sheetDropZone = document.getElementById('sheetDropZone');
     els.sheetFileInput = document.getElementById('sheetFileInput');
     els.btnLoadSamplePdf = document.getElementById('btnLoadSamplePdf');
     els.btnLoadSampleJpg = document.getElementById('btnLoadSampleJpg');
+    els.btnRunAiRecognize = document.getElementById('btnRunAiRecognize');
+    els.btnForceAiRecognize = document.getElementById('btnForceAiRecognize');
+    els.aiRecognizeSummary = document.getElementById('aiRecognizeSummary');
+    els.apiKeyStatusBadge = document.getElementById('apiKeyStatusBadge');
+    els.btnToggleApiKeyBox = document.getElementById('btnToggleApiKeyBox');
+    els.apiKeyConfigBox = document.getElementById('apiKeyConfigBox');
+    els.geminiApiKeyInput = document.getElementById('geminiApiKeyInput');
+    els.geminiModelSelect = document.getElementById('geminiModelSelect');
+    els.btnSaveApiKey = document.getElementById('btnSaveApiKey');
+    els.btnClearApiKey = document.getElementById('btnClearApiKey');
+    els.recognizedChordsBar = document.getElementById('recognizedChordsBar');
     els.btnSheetPrevPage = document.getElementById('btnSheetPrevPage');
     els.sheetPageIndicator = document.getElementById('sheetPageIndicator');
     els.btnSheetNextPage = document.getElementById('btnSheetNextPage');
@@ -670,6 +681,166 @@ C CM7 | C7 | Em | bE | Dm | Em | Fm | Gsus4 | C`
     renderQuickKeyPresets();
     renderSelectedChordAndPiano(false);
     renderTransposedSheet();
+    renderSheetOverlayAndChordsBar();
+  }
+
+  // ============================================================================
+  // 8.5 【模式二 T2-2】Gemini Vision AI 抓譜、快取與原譜覆蓋標籤渲染
+  // ============================================================================
+
+  function updateApiKeyStatusUI() {
+    if (!window.SheetParser || !els.apiKeyStatusBadge) return;
+    const hasKey = SheetParser.hasApiKey();
+    const model = SheetParser.getModelName();
+    if (els.geminiModelSelect) {
+      els.geminiModelSelect.value = model;
+    }
+    if (hasKey) {
+      els.apiKeyStatusBadge.textContent = `🔑 API Key 已就緒 (${model})`;
+      els.apiKeyStatusBadge.className = 'sheet-status-badge status-success';
+    } else {
+      els.apiKeyStatusBadge.textContent = '🔑 未設定 API Key (內建範例譜可 0 Token 免費辨識)';
+      els.apiKeyStatusBadge.className = 'sheet-status-badge status-info';
+    }
+  }
+
+  /**
+   * 將當前琴譜頁已辨識出的和弦陣列 (pageObj.chords) 依據目標調性與顯示模式，
+   * 渲染為上方和弦對照膠囊列 (#recognizedChordsBar) 與琴譜覆蓋標籤 (#sheetOverlayLayer)
+   */
+  function renderSheetOverlayAndChordsBar() {
+    if (!window.SheetViewer || !els.sheetOverlayLayer) return;
+    const pageObj = SheetViewer.getCurrentPage();
+
+    if (!pageObj || !Array.isArray(pageObj.chords) || pageObj.chords.length === 0) {
+      els.sheetOverlayLayer.innerHTML = '';
+      if (els.recognizedChordsBar) {
+        els.recognizedChordsBar.style.display = 'none';
+        els.recognizedChordsBar.innerHTML = '';
+      }
+      return;
+    }
+
+    // 1. 渲染上方已辨識和弦膠囊清單
+    if (els.recognizedChordsBar) {
+      els.recognizedChordsBar.style.display = 'flex';
+      const pillsHTML = pageObj.chords.map((ch) => {
+        const tr = MusicTheory.transposeChord(ch.raw, state.sourceKey, state.targetKey);
+        const tgtText = tr
+          ? (state.displayMode === 'number' ? tr.fixedNumberChord : tr.englishChord)
+          : ch.raw;
+        return `
+          <span class="rec-chord-pill" data-raw="${ch.raw}" title="點擊試聽並查看組成音">
+            <span style="color:#94a3b8;">${ch.raw}</span>
+            <span>➔</span>
+            <strong style="color:#34d399;">${tgtText}</strong>
+          </span>`;
+      }).join('');
+
+      els.recognizedChordsBar.innerHTML = `
+        <span style="font-size:0.82rem; font-weight:800; color:#60a5fa; width:100%;">
+          🎯 本頁已辨識出 ${pageObj.chords.length} 個和弦標記（切換頂部調性或顯示模式可 0 Token 瞬間換算，點擊任一和弦可發聲試聽）：
+        </span>
+        ${pillsHTML}
+      `;
+
+      els.recognizedChordsBar.querySelectorAll('.rec-chord-pill').forEach(pill => {
+        pill.addEventListener('click', () => {
+          const raw = pill.getAttribute('data-raw');
+          const tr = MusicTheory.transposeChord(raw, state.sourceKey, state.targetKey);
+          if (tr && state.audioEnabled) {
+            PianoVisualizer.playChordAudio(tr);
+          }
+        });
+      });
+    }
+
+    // 2. 渲染琴譜畫布上的轉調和弦標籤 (#sheetOverlayLayer)
+    const tagsHTML = pageObj.chords.map((ch) => {
+      const tr = MusicTheory.transposeChord(ch.raw, state.sourceKey, state.targetKey);
+      let labelText = ch.raw;
+      let tooltipText = ch.raw;
+
+      if (tr) {
+        if (state.displayMode === 'number') {
+          labelText = tr.fixedNumberChord;
+        } else if (state.displayMode === 'practice') {
+          labelText = `${ch.raw}➔${tr.englishChord}`;
+        } else {
+          labelText = tr.englishChord;
+        }
+        tooltipText = `原譜: ${ch.raw} ➔ 新調: ${tr.englishChord} (${tr.fixedNumberChord}) | 組成音: ${tr.notes.english.join('-')} (${tr.notes.fixedNumber.join('-')})`;
+      }
+
+      return `
+        <div class="sheet-chord-tag"
+             data-id="${ch.id}"
+             data-raw="${ch.raw}"
+             style="left: ${ch.xPercent}%; top: ${ch.yPercent}%;"
+             title="${tooltipText}">
+          ${labelText}
+        </div>`;
+    }).join('');
+
+    els.sheetOverlayLayer.innerHTML = tagsHTML;
+
+    els.sheetOverlayLayer.querySelectorAll('.sheet-chord-tag').forEach(tag => {
+      tag.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const raw = tag.getAttribute('data-raw');
+        const tr = MusicTheory.transposeChord(raw, state.sourceKey, state.targetKey);
+        if (tr && state.audioEnabled) {
+          PianoVisualizer.playChordAudio(tr);
+        }
+      });
+    });
+  }
+
+  /**
+   * 執行當前琴譜頁面的 AI 智慧辨識 (或讀取快取)
+   */
+  async function executeCurrentPageRecognition(forceRefresh = false) {
+    if (!window.SheetViewer || !window.SheetParser) return;
+    const viewerState = SheetViewer.getState();
+    const pageObj = SheetViewer.getCurrentPage();
+    if (!pageObj) return;
+
+    try {
+      els.btnRunAiRecognize.disabled = true;
+      els.btnForceAiRecognize.disabled = true;
+      els.aiRecognizeSummary.textContent = forceRefresh
+        ? '⏳ 正在呼叫 Gemini Vision AI 進行高精度樂譜視覺判讀...'
+        : '⏳ 正在載入和弦辨識資料...';
+      els.aiRecognizeSummary.style.color = '#fde68a';
+
+      const result = await SheetParser.recognizeSheetPage(pageObj.dataUrl, {
+        fileName: viewerState.fileName,
+        pageNumber: pageObj.pageNumber,
+        forceRefresh
+      });
+
+      pageObj.chords = result.chords || [];
+
+      const sourceLabelMap = {
+        builtin: '⚡ 已載入內建範例預校對座標 (0 Token 消耗)',
+        cache: '⚡ 已從本機快取載入辨識結果 (0 Token 消耗)',
+        gemini: '🤖 Gemini Vision AI 視覺辨識完成 (已自動寫入快取)'
+      };
+
+      els.aiRecognizeSummary.textContent = `${sourceLabelMap[result.source] || '辨識完成'} — 共抓取 ${pageObj.chords.length} 個和弦`;
+      els.aiRecognizeSummary.style.color = '#6ee7b7';
+
+      renderSheetOverlayAndChordsBar();
+    } catch (err) {
+      els.aiRecognizeSummary.textContent = `⚠️ ${err.message || '辨識失敗'}`;
+      els.aiRecognizeSummary.style.color = '#fda4af';
+      if (String(err.message).includes('MISSING_API_KEY') && els.apiKeyConfigBox) {
+        els.apiKeyConfigBox.style.display = 'block';
+      }
+    } finally {
+      els.btnRunAiRecognize.disabled = false;
+      els.btnForceAiRecognize.disabled = false;
+    }
   }
 
   // ============================================================================
@@ -768,8 +939,10 @@ C CM7 | C7 | Em | bE | Dm | Em | Fm | Gsus4 | C`
       renderTransposedSheet();
     });
 
-    // 模式二 (T2-1)：初始化 PDF / JPG 琴譜載入與預覽模組
+    // 模式二 (T2-1 & T2-2)：初始化 PDF / JPG 琴譜載入、預覽與 Gemini AI 抓譜模組
     if (window.SheetViewer) {
+      updateApiKeyStatusUI();
+
       SheetViewer.init({
         statusText: els.sheetViewerStatus,
         dropZone: els.sheetDropZone,
@@ -787,7 +960,68 @@ C CM7 | C7 | Em | bE | Dm | Em | Fm | Gsus4 | C`
         sheetViewportInner: els.sheetViewportInner,
         baseCanvas: els.sheetBaseCanvas,
         overlayLayer: els.sheetOverlayLayer
+      }, {
+        onPageChange: (pageObj, pageIdx, totalPages) => {
+          if (els.btnRunAiRecognize) els.btnRunAiRecognize.disabled = false;
+          if (els.btnForceAiRecognize) els.btnForceAiRecognize.disabled = false;
+
+          // 若該頁尚無和弦資料，但快取或內建範例有預先辨識資料，自動 0 Token 載入！
+          const vState = SheetViewer.getState();
+          if ((!pageObj.chords || pageObj.chords.length === 0) && window.SheetParser) {
+            const cached = SheetParser.getCachedRecognition(vState.fileName, pageObj.pageNumber);
+            if (cached && Array.isArray(cached.chords) && cached.chords.length > 0) {
+              pageObj.chords = cached.chords;
+              const isBuiltin = SheetParser.hasBuiltInSampleCache(vState.fileName, pageObj.pageNumber);
+              els.aiRecognizeSummary.textContent = isBuiltin
+                ? `⚡ 已自動套用內建範例精準和弦座標 (第 ${pageObj.pageNumber} 頁共 ${pageObj.chords.length} 個和弦，0 Token)`
+                : `⚡ 已從本機快取載入第 ${pageObj.pageNumber} 頁辨識結果 (${pageObj.chords.length} 個和弦，0 Token)`;
+              els.aiRecognizeSummary.style.color = '#6ee7b7';
+            } else {
+              els.aiRecognizeSummary.textContent = `第 ${pageObj.pageNumber} / ${totalPages} 頁已就緒，請點擊「🤖 智慧辨識本頁和弦」`;
+              els.aiRecognizeSummary.style.color = '#94a3b8';
+            }
+          } else if (pageObj.chords && pageObj.chords.length > 0) {
+            els.aiRecognizeSummary.textContent = `✅ 第 ${pageObj.pageNumber} 頁已顯示 ${pageObj.chords.length} 個轉調和弦標籤`;
+            els.aiRecognizeSummary.style.color = '#6ee7b7';
+          }
+
+          renderSheetOverlayAndChordsBar();
+        }
       });
+
+      // 綁定 AI 辨識與 API Key 設定按鈕
+      if (els.btnRunAiRecognize) {
+        els.btnRunAiRecognize.addEventListener('click', () => executeCurrentPageRecognition(false));
+      }
+      if (els.btnForceAiRecognize) {
+        els.btnForceAiRecognize.addEventListener('click', () => executeCurrentPageRecognition(true));
+      }
+      if (els.btnToggleApiKeyBox && els.apiKeyConfigBox) {
+        els.btnToggleApiKeyBox.addEventListener('click', () => {
+          const isHidden = els.apiKeyConfigBox.style.display === 'none';
+          els.apiKeyConfigBox.style.display = isHidden ? 'block' : 'none';
+          if (isHidden && els.geminiApiKeyInput && window.SheetParser) {
+            els.geminiApiKeyInput.value = SheetParser.getApiKey();
+          }
+        });
+      }
+      if (els.btnSaveApiKey && window.SheetParser) {
+        els.btnSaveApiKey.addEventListener('click', () => {
+          SheetParser.setApiKey(els.geminiApiKeyInput.value);
+          if (els.geminiModelSelect) {
+            SheetParser.setModelName(els.geminiModelSelect.value);
+          }
+          updateApiKeyStatusUI();
+          els.apiKeyConfigBox.style.display = 'none';
+        });
+      }
+      if (els.btnClearApiKey && window.SheetParser) {
+        els.btnClearApiKey.addEventListener('click', () => {
+          SheetParser.setApiKey('');
+          if (els.geminiApiKeyInput) els.geminiApiKeyInput.value = '';
+          updateApiKeyStatusUI();
+        });
+      }
 
       if (els.btnLoadSamplePdf) {
         els.btnLoadSamplePdf.addEventListener('click', async () => {
