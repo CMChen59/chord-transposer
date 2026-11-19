@@ -243,36 +243,57 @@ C CM7 | C7 | Em | bE | Dm | Em | Fm | Gsus4 | C`
     els.transposedSheetOutput = document.getElementById('transposedSheetOutput');
   }
 
-  function populateKeySelects() {
-    [els.sourceKeySelect, els.targetKeySelect].forEach(selectEl => {
-      selectEl.innerHTML = '';
+  let currentTargetKeyOrder = null; // 'major-first' | 'minor-first'
 
-      const grpMajor = document.createElement('optgroup');
-      grpMajor.label = '大調 (Major Keys)';
-      KEY_OPTIONS_MAJOR.forEach(k => {
-        const info = MusicTheory.getKeyInfo(k);
-        const opt = document.createElement('option');
-        opt.value = k;
-        opt.textContent = info.label;
-        grpMajor.appendChild(opt);
-      });
-
-      const grpMinor = document.createElement('optgroup');
-      grpMinor.label = '小調 (Minor Keys)';
-      KEY_OPTIONS_MINOR.forEach(k => {
-        const info = MusicTheory.getKeyInfo(k);
-        const opt = document.createElement('option');
-        opt.value = k;
-        opt.textContent = info.label;
-        grpMinor.appendChild(opt);
-      });
-
-      selectEl.appendChild(grpMajor);
-      selectEl.appendChild(grpMinor);
+  function buildKeyOptGroup(label, keys) {
+    const grp = document.createElement('optgroup');
+    grp.label = label;
+    keys.forEach(k => {
+      const info = MusicTheory.getKeyInfo(k);
+      const opt = document.createElement('option');
+      opt.value = k;
+      opt.textContent = info.label;
+      grp.appendChild(opt);
     });
+    return grp;
+  }
 
+  function populateSourceKeySelect() {
+    if (!els.sourceKeySelect) return;
+    els.sourceKeySelect.innerHTML = '';
+    els.sourceKeySelect.appendChild(buildKeyOptGroup('大調 (Major Keys)', KEY_OPTIONS_MAJOR));
+    els.sourceKeySelect.appendChild(buildKeyOptGroup('小調 (Minor Keys)', KEY_OPTIONS_MINOR));
     els.sourceKeySelect.value = state.sourceKey;
+  }
+
+  /**
+   * 動態依據「原譜調性」調整「目標調性」下拉選單之群組置頂順序：
+   * - 原譜為小調 (如 Am)：小調群組置頂 (小調 ➔ 大調)，方便小調琴譜快速選取目標小調
+   * - 原譜為大調 (如 C)：大調群組置頂 (大調 ➔ 小調)
+   */
+  function updateTargetKeySelectOptions() {
+    if (!els.targetKeySelect) return;
+    const isMinor = MusicTheory.getKeyInfo(state.sourceKey)?.isMinor || state.sourceKey.endsWith('m');
+    const desiredOrder = isMinor ? 'minor-first' : 'major-first';
+
+    if (currentTargetKeyOrder !== desiredOrder || els.targetKeySelect.children.length === 0) {
+      currentTargetKeyOrder = desiredOrder;
+      els.targetKeySelect.innerHTML = '';
+      if (isMinor) {
+        els.targetKeySelect.appendChild(buildKeyOptGroup('小調 (Minor Keys)', KEY_OPTIONS_MINOR));
+        els.targetKeySelect.appendChild(buildKeyOptGroup('大調 (Major Keys)', KEY_OPTIONS_MAJOR));
+      } else {
+        els.targetKeySelect.appendChild(buildKeyOptGroup('大調 (Major Keys)', KEY_OPTIONS_MAJOR));
+        els.targetKeySelect.appendChild(buildKeyOptGroup('小調 (Minor Keys)', KEY_OPTIONS_MINOR));
+      }
+    }
+
     els.targetKeySelect.value = state.targetKey;
+  }
+
+  function populateKeySelects() {
+    populateSourceKeySelect();
+    updateTargetKeySelectOptions();
   }
 
   // ============================================================================
@@ -708,6 +729,7 @@ C CM7 | C7 | Em | bE | Dm | Em | Fm | Gsus4 | C`
   }
 
   function updateAllViews() {
+    updateTargetKeySelectOptions();
     renderKeySignatureBanner();
     renderQuickSingleConverter();
     renderReferenceTable();
@@ -1051,11 +1073,10 @@ C CM7 | C7 | Em | bE | Dm | Em | Fm | Gsus4 | C`
       });
     });
 
-    // 原調與目標調變更 (方案 1 + 方案 2：切換原譜調性時，目標調性自動同步對齊為同一調性與大小調家族)
+    // 原調與目標調變更 (方案 1 + 方案 2：切換原譜調性時，目標調性自動同步對齊，且目標調選單群組依原譜大小調自動置頂)
     els.sourceKeySelect.addEventListener('change', () => {
       state.sourceKey = els.sourceKeySelect.value;
       state.targetKey = state.sourceKey;
-      els.targetKeySelect.value = state.targetKey;
       updateAllViews();
     });
 
