@@ -70,5 +70,16 @@
 
 ---
 
+### [ISSUE-006] 新申請之 Gemini API Key 不再開放舊版 `gemini-2.5-flash`，需升級為 `gemini-3.8-flash`
+- **狀態**：`🟢 Resolved (已修復並自動升級 localStorage 模型名稱)`
+- **發現日期**：2026-11-19
+- **問題描述**：
+  - 使用者申請新版 Google AI Studio API Key 後呼叫視覺辨識時，API 回傳錯誤：`This model models/gemini-2.5-flash is no longer available to new users. Please update your code to use models/gemini-3.8-flash for the latest features and improvements.`。
+- **解決方案**：
+  - 將 `js/sheet-parser.js` 的 `DEFAULT_GEMINI_MODEL` 與 `index.html` 的模型選單全面更新為 **`gemini-3.8-flash`**（並提供 `gemini-3.8-pro` 選項）。
+  - 在 `getModelName()` 中加入自動遷移邏輯，若偵測到 `localStorage` 存有舊版 `gemini-2.5-flash` 則自動升級為 `gemini-3.8-flash`，無須重新設定金鑰。
+
+---
+
 ## 歷史已解決問題紀錄 (Resolved Issues)
 *(待開發階段實測後陸續歸檔於此)*

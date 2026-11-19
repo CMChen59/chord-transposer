@@ -23,7 +23,7 @@
   const STORAGE_KEY_API = 'chord_transposer_gemini_api_key';
   const STORAGE_KEY_MODEL = 'chord_transposer_gemini_model';
   const STORAGE_KEY_CACHE = 'chord_transposer_vision_cache_v1';
-  const DEFAULT_GEMINI_MODEL = 'gemini-2.5-flash';
+  const DEFAULT_GEMINI_MODEL = 'gemini-3.8-flash';
 
   // ============================================================================
   // 1. 內建兩份範例琴譜之預先辨識座標資料 (0 Token 離線即開即看示範)
@@ -176,7 +176,13 @@
 
   function getModelName() {
     if (typeof localStorage === 'undefined') return DEFAULT_GEMINI_MODEL;
-    return localStorage.getItem(STORAGE_KEY_MODEL) || DEFAULT_GEMINI_MODEL;
+    const saved = localStorage.getItem(STORAGE_KEY_MODEL);
+    // 自動將舊版停用模型升級為最新的 gemini-3.8-flash
+    if (!saved || saved === 'gemini-2.5-flash' || saved === 'gemini-2.0-flash' || saved === 'gemini-1.5-flash') {
+      localStorage.setItem(STORAGE_KEY_MODEL, DEFAULT_GEMINI_MODEL);
+      return DEFAULT_GEMINI_MODEL;
+    }
+    return saved;
   }
 
   function setModelName(model) {
