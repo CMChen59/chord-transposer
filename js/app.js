@@ -190,6 +190,7 @@ C CM7 | C7 | Em | bE | Dm | Em | Fm | Gsus4 | C`
     els.geminiModelSelect = document.getElementById('geminiModelSelect');
     els.btnSaveApiKey = document.getElementById('btnSaveApiKey');
     els.btnClearApiKey = document.getElementById('btnClearApiKey');
+    els.tokenUsageStatsBar = document.getElementById('tokenUsageStatsBar');
     els.recognizedChordsBar = document.getElementById('recognizedChordsBar');
     // T2-3 覆蓋標籤控制與點選組成音/鋼琴聯動面板
     els.btnToggleAddChordMode = document.getElementById('btnToggleAddChordMode');
@@ -728,6 +729,33 @@ C CM7 | C7 | Em | bE | Dm | Em | Fm | Gsus4 | C`
       els.apiKeyStatusBadge.textContent = '🔑 未設定 API Key (內建範例譜可 0 Token 免費辨識)';
       els.apiKeyStatusBadge.className = 'sheet-status-badge status-info';
     }
+    renderTokenUsageStatsBar();
+  }
+
+  /**
+   * 渲染 Google API 官方回傳之 Token 消耗統計與今日預估剩餘免費額度
+   */
+  function renderTokenUsageStatsBar(lastSessionTokens = null) {
+    if (!window.SheetParser || !els.tokenUsageStatsBar) return;
+    const stats = SheetParser.getTokenUsageStats();
+    const lastDisplay = lastSessionTokens !== null
+      ? (lastSessionTokens === 0
+          ? `<strong style="color:#34d399;">0 Token (快取命中/免連網)</strong>`
+          : `<strong style="color:#fde68a;">${lastSessionTokens.toLocaleString()} Tokens</strong> <span style="color:#94a3b8;">(最近單頁: 輸入 ${stats.lastPromptTokens} / 輸出 ${stats.lastOutputTokens})</span>`)
+      : (stats.lastTotalTokens > 0
+          ? `<strong style="color:#fde68a;">${stats.lastTotalTokens.toLocaleString()} Tokens</strong> <span style="color:#94a3b8;">(輸入 ${stats.lastPromptTokens} / 輸出 ${stats.lastOutputTokens})</span>`
+          : `<strong style="color:#34d399;">0 Token</strong>`);
+
+    els.tokenUsageStatsBar.innerHTML = `
+      <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 14px;">
+        <span>📊 <strong>本次辨識消耗：</strong>${lastDisplay}</span>
+        <span>｜ 📅 <strong>今日累計用量 (${stats.date})：</strong><strong style="color:#60a5fa;">${stats.todayRequests} 次呼叫</strong> (${stats.todayTokens.toLocaleString()} Tokens)</span>
+        <span>｜ 🔋 <strong>今日免費額度預估剩餘：</strong><strong style="color:#34d399;">約 ${stats.remainingRequests.toLocaleString()} / ${stats.freeDailyRequestLimit.toLocaleString()} 次 (${stats.remainingPercent}%)</strong></span>
+      </div>
+      <a href="https://aistudio.google.com/app/plan_information" target="_blank" rel="noopener" style="color: #93c5fd; text-decoration: none; font-weight: 700;">
+        🔗 查看 Google 官方額度後台 ↗
+      </a>
+    `;
   }
 
   /**
@@ -956,6 +984,7 @@ C CM7 | C7 | Em | bE | Dm | Em | Fm | Gsus4 | C`
 
       let totalChordsFound = 0;
       let usedGeminiCount = 0;
+      let sessionTokensUsed = 0;
 
       for (let i = 0; i < totalCount; i++) {
         const pageItem = targetPages[i];
@@ -972,8 +1001,13 @@ C CM7 | C7 | Em | bE | Dm | Em | Fm | Gsus4 | C`
 
         pageItem.chords = result.chords || [];
         totalChordsFound += pageItem.chords.length;
-        if (result.source === 'gemini') usedGeminiCount++;
+        if (result.source === 'gemini') {
+          usedGeminiCount++;
+          sessionTokensUsed += (result.usage?.totalTokens || 0);
+        }
       }
+
+      renderTokenUsageStatsBar(sessionTokensUsed);
 
       if (totalCount > 1) {
         els.aiRecognizeSummary.textContent = usedGeminiCount > 0

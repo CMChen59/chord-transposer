@@ -23,7 +23,12 @@
   const STORAGE_KEY_API = 'chord_transposer_gemini_api_key';
   const STORAGE_KEY_MODEL = 'chord_transposer_gemini_model';
   const STORAGE_KEY_CACHE = 'chord_transposer_vision_cache_v1';
+  const STORAGE_KEY_TOKEN_STATS = 'chord_transposer_token_stats_v1';
   const DEFAULT_GEMINI_MODEL = 'gemini-3.8-flash';
+
+  // Google AI Studio 免費方案 (Free Tier) 每日參考額度上限
+  const FREE_DAILY_REQUEST_LIMIT = 1500;
+  const FREE_DAILY_TOKEN_LIMIT = 1000000;
 
   // ============================================================================
   // 1. 內建兩份範例琴譜之預先辨識座標資料 (0 Token 離線即開即看示範)
@@ -188,6 +193,105 @@
   function setModelName(model) {
     if (typeof localStorage === 'undefined') return;
     localStorage.setItem(STORAGE_KEY_MODEL, (model || DEFAULT_GEMINI_MODEL).trim());
+  }
+
+  /**
+   * 取得今日日期字串 (YYYY-MM-DD)，用於每日免費額度自動重置計算
+   */
+  function getTodayDateString() {
+    const d = new Date();
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+  }
+
+  /**
+   * 讀取本機累計與今日 Token 用量統計與預估剩餘免費額度
+   */
+  function getTokenUsageStats() {
+    const today = getTodayDateString();
+    const defaultStats = {
+      date: today,
+      lastPromptTokens: 0,
+      lastOutputTokens: 0,
+      lastTotalTokens: 0,
+      todayRequests: 0,
+      todayTokens: 0,
+      allTimeRequests: 0,
+      allTimeTokens: 0
+    };
+
+    if (typeof localStorage === 'undefined') {
+      return enrichStatsWithQuota(defaultStats);
+    }
+
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY_TOKEN_STATS);
+      if (!raw) return enrichStatsWithQuota(defaultStats);
+      const parsed = JSON.parse(raw);
+      if (parsed.date !== today) {
+        // 跨日自動將「今日用量」歸零，保留歷史總累計
+        parsed.date = today;
+        parsed.todayRequests = 0;
+        parsed.todayTokens = 0;
+        parsed.lastPromptTokens = 0;
+        parsed.lastOutputTokens = 0;
+        parsed.lastTotalTokens = 0;
+        localStorage.setItem(STORAGE_KEY_TOKEN_STATS, JSON.stringify(parsed));
+      }
+      return enrichStatsWithQuota({ ...defaultStats, ...parsed });
+    } catch (e) {
+      return enrichStatsWithQuota(defaultStats);
+    }
+  }
+
+  function enrichStatsWithQuota(stats) {
+    const remainingRequests = Math.max(0, FREE_DAILY_REQUEST_LIMIT - stats.todayRequests);
+    const remainingTokens = Math.max(0, FREE_DAILY_TOKEN_LIMIT - stats.todayTokens);
+    const remainingPercent = Math.max(
+      0,
+      Math.min(100, Math.round((remainingTokens / FREE_DAILY_TOKEN_LIMIT) * 1000) / 10)
+    );
+    return {
+      ...stats,
+      freeDailyRequestLimit: FREE_DAILY_REQUEST_LIMIT,
+      freeDailyTokenLimit: FREE_DAILY_TOKEN_LIMIT,
+      remainingRequests,
+      remainingTokens,
+      remainingPercent
+    };
+  }
+
+  /**
+   * 記錄單次 Gemini API 回傳之官方 usageMetadata Token 數據
+   */
+  function recordTokenUsage(usageMetadata) {
+    const current = getTokenUsageStats();
+    const promptTokens = Number(usageMetadata?.promptTokenCount) || 0;
+    const outputTokens = Number(usageMetadata?.candidatesTokenCount) || 0;
+    const totalTokens = Number(usageMetadata?.totalTokenCount) || (promptTokens + outputTokens);
+
+    const updated = {
+      date: getTodayDateString(),
+      lastPromptTokens: promptTokens,
+      lastOutputTokens: outputTokens,
+      lastTotalTokens: totalTokens,
+      todayRequests: current.todayRequests + 1,
+      todayTokens: current.todayTokens + totalTokens,
+      allTimeRequests: current.allTimeRequests + 1,
+      allTimeTokens: current.allTimeTokens + totalTokens
+    };
+
+    if (typeof localStorage !== 'undefined') {
+      try {
+        localStorage.setItem(STORAGE_KEY_TOKEN_STATS, JSON.stringify(updated));
+      } catch (e) {
+        // ignore
+      }
+    }
+
+    return enrichStatsWithQuota(updated);
   }
 
   // ============================================================================
@@ -436,6 +540,10 @@
     }
 
     const resultJson = await response.json();
+    // 記錄 Google API 官方回傳之精確 Token 消耗量 (usageMetadata)
+    const usageMeta = resultJson?.usageMetadata || {};
+    const tokenStats = recordTokenUsage(usageMeta);
+
     const rawText =
       resultJson?.candidates?.[0]?.content?.parts?.[0]?.text || '';
 
@@ -470,6 +578,12 @@
 
     return {
       source: 'gemini',
+      usage: {
+        promptTokens: tokenStats.lastPromptTokens,
+        outputTokens: tokenStats.lastOutputTokens,
+        totalTokens: tokenStats.lastTotalTokens
+      },
+      tokenStats,
       ...finalData
     };
   }
@@ -481,6 +595,8 @@
     hasApiKey,
     getModelName,
     setModelName,
+    getTokenUsageStats,
+    recordTokenUsage,
     getCachedRecognition,
     saveCachedRecognition,
     hasBuiltInSampleCache,

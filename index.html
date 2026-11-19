@@ -207,6 +207,11 @@
             </div>
           </div>
 
+          <!-- Token 用量與今日剩餘免費額度即時監控列 -->
+          <div id="tokenUsageStatsBar" style="background: rgba(15, 23, 42, 0.7); border: 1px solid #334155; border-radius: 6px; padding: 8px 12px; font-size: 0.82rem; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px;">
+            <!-- 由 js/app.js 動態渲染 Google API 回傳之精確 Token 用量與免費額度剩餘統計 -->
+          </div>
+
           <!-- 可收合之 Gemini API Key 設定盒 (儲存於本機 localStorage，不上傳 Git) -->
           <div id="apiKeyConfigBox" class="api-key-config-box" style="display: none;">
             <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 10px;">
