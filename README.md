@@ -36,17 +36,22 @@
 
 ```
 d:\Vibe Coding\和弦轉調工具\
-├── index.html               # 主應用程式介面 (單頁式 Web App，免安裝環境直接開啟)
+├── index.html               # 主應用程式介面 (單頁式 Web App，免安裝 Node 環境直接開啟)
 ├── css/
 │   └── style.css            # 介面樣式、鋼琴鍵盤與原譜覆蓋標籤樣式
 ├── js/
 │   ├── music-theory.js      # 核心樂理引擎 (英文/簡譜級數互轉、五度圈升降記號、組成音計算)
-│   ├── piano-visualizer.js  # 互動式鋼琴鍵盤繪製模組 (顯示根音與右手和弦組成音)
-│   ├── sheet-parser.js      # PDF.js 與 Gemini Vision API 樂譜視覺辨識模組
-│   └── app.js               # 狀態管理、UI 互動與轉調模式切換控制
-├── samples/                 # 測試用範例樂譜 (PDF / JPG)
+│   ├── piano-visualizer.js  # 互動式鋼琴鍵盤繪製模組 (左右手分區、顯示根音與和弦組成音)
+│   ├── sheet-viewer.js      # PDF.js 多頁高解析渲染、畫布縮放預覽與覆蓋圖層管理
+│   ├── sheet-parser.js      # Gemini Vision API 智慧抓譜與本機快取模組 (預設 gemini-3.8-flash)
+│   ├── sheet-exporter.js    # 轉調琴譜另存高解析 JPG / 全曲 PDF (jsPDF) 與專案檔 (.json) 存取
+│   ├── sample-sheets-data.js# 內建《償還》與《川の流れのように》離線 Base64 樂譜資料
+│   └── app.js               # 全域狀態管理、事件綁定與多模式連動主控制器
+├── samples/                 # 測試用範例樂譜實體檔案 (PDF / JPG)
+├── tests/
+│   └── test-music-theory.js # 核心樂理解析與轉調單元測試腳本 (node tests/test-music-theory.js)
 ├── docs/
-│   └── DISCUSSION_LOG.md    # 討論記錄與執行過程日誌
+│   └── DISCUSSION_LOG.md    # 討論記錄與執行過程日誌 (完整記錄每次決策與實作細節)
 ├── TASKS.md                 # 任務進度追蹤清單
 └── ISSUES.md                # Issue 問題追蹤清單
 ```
