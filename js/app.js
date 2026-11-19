@@ -937,37 +937,53 @@ C CM7 | C7 | Em | bE | Dm | Em | Fm | Gsus4 | C`
   }
 
   /**
-   * 執行當前琴譜頁面的 AI 智慧辨識 (或讀取快取)
+   * 執行琴譜和弦辨識：
+   * - 若 allPages = true (預設點擊「🤖 智慧辨識全曲所有頁面」)，會自動依序辨識整份 PDF 的每一頁（第 1 頁、第 2 頁...），翻頁時直接就緒不用再按一次！
+   * - 若 forceRefresh = true (點擊「🔄 重新辨識本頁」)，則針對當前頁強制重新呼叫 Gemini AI。
    */
-  async function executeCurrentPageRecognition(forceRefresh = false) {
+  async function executeCurrentPageRecognition(forceRefresh = false, allPages = !forceRefresh) {
     if (!window.SheetViewer || !window.SheetParser) return;
     const viewerState = SheetViewer.getState();
-    const pageObj = SheetViewer.getCurrentPage();
-    if (!pageObj) return;
+    const currentPageObj = SheetViewer.getCurrentPage();
+    if (!currentPageObj || !Array.isArray(viewerState.pages) || viewerState.pages.length === 0) return;
+
+    const targetPages = allPages ? viewerState.pages : [currentPageObj];
+    const totalCount = targetPages.length;
 
     try {
       els.btnRunAiRecognize.disabled = true;
       els.btnForceAiRecognize.disabled = true;
-      els.aiRecognizeSummary.textContent = forceRefresh
-        ? '⏳ 正在呼叫 Gemini Vision AI 進行高精度樂譜視覺判讀...'
-        : '⏳ 正在載入和弦辨識資料...';
-      els.aiRecognizeSummary.style.color = '#fde68a';
 
-      const result = await SheetParser.recognizeSheetPage(pageObj.dataUrl, {
-        fileName: viewerState.fileName,
-        pageNumber: pageObj.pageNumber,
-        forceRefresh
-      });
+      let totalChordsFound = 0;
+      let usedGeminiCount = 0;
 
-      pageObj.chords = result.chords || [];
+      for (let i = 0; i < totalCount; i++) {
+        const pageItem = targetPages[i];
+        els.aiRecognizeSummary.textContent = forceRefresh
+          ? `⏳ 正在強制呼叫 Gemini AI 重新辨識第 ${pageItem.pageNumber} 頁...`
+          : `⏳ 正在辨識全曲進度：第 ${pageItem.pageNumber} / ${viewerState.pages.length} 頁...`;
+        els.aiRecognizeSummary.style.color = '#fde68a';
 
-      const sourceLabelMap = {
-        builtin: '⚡ 已載入內建範例預校對座標 (0 Token 消耗)',
-        cache: '⚡ 已從本機快取載入辨識結果 (0 Token 消耗)',
-        gemini: '🤖 Gemini Vision AI 視覺辨識完成 (已自動寫入快取)'
-      };
+        const result = await SheetParser.recognizeSheetPage(pageItem.dataUrl, {
+          fileName: viewerState.fileName,
+          pageNumber: pageItem.pageNumber,
+          forceRefresh
+        });
 
-      els.aiRecognizeSummary.textContent = `${sourceLabelMap[result.source] || '辨識完成'} — 共抓取 ${pageObj.chords.length} 個和弦`;
+        pageItem.chords = result.chords || [];
+        totalChordsFound += pageItem.chords.length;
+        if (result.source === 'gemini') usedGeminiCount++;
+      }
+
+      if (totalCount > 1) {
+        els.aiRecognizeSummary.textContent = usedGeminiCount > 0
+          ? `🤖 全曲共 ${totalCount} 頁 AI 辨識完成（共抓取 ${totalChordsFound} 個和弦，翻頁可直接檢視）！`
+          : `⚡ 全曲共 ${totalCount} 頁已從快取載入完成（共 ${totalChordsFound} 個和弦，0 Token 消耗）！`;
+      } else {
+        els.aiRecognizeSummary.textContent = usedGeminiCount > 0
+          ? `🤖 第 ${currentPageObj.pageNumber} 頁 Gemini AI 辨識完成 — 共抓取 ${currentPageObj.chords.length} 個和弦`
+          : `⚡ 第 ${currentPageObj.pageNumber} 頁已從快取載入 — 共 ${currentPageObj.chords.length} 個和弦 (0 Token)`;
+      }
       els.aiRecognizeSummary.style.color = '#6ee7b7';
 
       renderSheetOverlayAndChordsBar();
