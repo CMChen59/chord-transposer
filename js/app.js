@@ -781,20 +781,9 @@ C CM7 | C7 | Em | bE | Dm | Em | Fm | Gsus4 | C`
       <span>｜ 左手Bass: <strong style="color:#f59e0b;">${tr.notes.bassEnglish}(${tr.notes.bassFixedNumber})</strong></span>
     `;
 
-    if (els.sheetInlinePianoWrapper) {
-      els.sheetInlinePianoWrapper.style.display = state.inlinePianoVisible ? 'block' : 'none';
-    }
-    if (els.sheetInlinePianoContainer) {
-      PianoVisualizer.mountPiano(els.sheetInlinePianoContainer, tr);
-    }
-
     // 同步更新模式三的單一和弦查詢輸入框
     if (els.chordLookupInput) {
       els.chordLookupInput.value = chordItem.raw;
-    }
-
-    if (triggerAudio && state.audioEnabled) {
-      PianoVisualizer.playChordAudio(tr);
     }
   }
 
