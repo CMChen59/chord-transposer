@@ -124,14 +124,14 @@ C CM7 | C7 | Em | bE | Dm | Em | Fm | Gsus4 | C`
   // ============================================================================
 
   const state = {
-    sourceKey: 'Am',
-    targetKey: 'Cm',
+    sourceKey: 'C',
+    targetKey: 'C',
     displayMode: 'english', // 'english' | 'number' | 'practice'
     audioEnabled: true,
     activeTab: 'tab-reference-table',
     degreeFilter: 'common', // 'common' | 'all' | '1' ~ '7'
     activePresetKey: 'changHuan',
-    selectedRawChord: '6m',
+    selectedRawChord: 'C',
     selectedCardIndex: null,
     // T2-3 原譜覆蓋標籤互動與樣式狀態
     selectedSheetTagId: null,
@@ -687,20 +687,21 @@ C CM7 | C7 | Em | bE | Dm | Em | Fm | Gsus4 | C`
     }
   }
 
-  function loadPresetSheet(presetKey) {
+  function loadPresetSheet(presetKey, updateGlobalKeys = true) {
     const preset = PRESET_SHEETS[presetKey];
     if (!preset) return;
 
     state.activePresetKey = presetKey;
-    state.sourceKey = preset.sourceKey;
-    state.targetKey = preset.targetKey;
+    if (updateGlobalKeys) {
+      state.sourceKey = preset.sourceKey;
+      state.targetKey = preset.targetKey;
+      els.sourceKeySelect.value = state.sourceKey;
+      els.targetKeySelect.value = state.targetKey;
+    }
     state.selectedCardIndex = 0;
-
-    els.sourceKeySelect.value = state.sourceKey;
-    els.targetKeySelect.value = state.targetKey;
     els.sheetInputTextarea.value = preset.content;
 
-    const firstChord = presetKey === 'changHuan' ? '6m' : 'C';
+    const firstChord = updateGlobalKeys ? (presetKey === 'changHuan' ? '6m' : 'C') : state.selectedRawChord;
     els.chordLookupInput.value = firstChord;
 
     updateAllViews();
@@ -1050,9 +1051,11 @@ C CM7 | C7 | Em | bE | Dm | Em | Fm | Gsus4 | C`
       });
     });
 
-    // 原調與目標調變更
+    // 原調與目標調變更 (方案 1 + 方案 2：切換原譜調性時，目標調性自動同步對齊為同一調性與大小調家族)
     els.sourceKeySelect.addEventListener('change', () => {
       state.sourceKey = els.sourceKeySelect.value;
+      state.targetKey = state.sourceKey;
+      els.targetKeySelect.value = state.targetKey;
       updateAllViews();
     });
 
@@ -1549,6 +1552,7 @@ C CM7 | C7 | Em | bE | Dm | Em | Fm | Gsus4 | C`
     populateKeySelects();
     renderQuickChordChips();
     bindEvents();
-    loadPresetSheet('changHuan');
+    // 方案 1：初次開啟網頁維持 C 大調 ➔ C 大調 (0 半音標準歸零狀態)，僅預填模式三的範例文字而不強制覆寫調性
+    loadPresetSheet('changHuan', false);
   });
 })();
