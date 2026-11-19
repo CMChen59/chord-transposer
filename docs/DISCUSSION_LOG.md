@@ -123,3 +123,6 @@
   3. **內建範例一鍵免選檔載入 (`js/sample-sheets-data.js`)**：
      - 將備份於 `samples/` 的《償還_Am.pdf》(2頁 PDF) 與《川の流れのように_C.jpg》(JPG) 封裝為離線 Base64 模組，在 `file://` 下無須架設本地 Server 即可一鍵載入兩份真實琴譜並自動同步原調與建議目標調。
   4. **無損縮放與雙層畫布結構**：支援 `50% ~ 175%` 縮放預覽，並在 `#sheetBaseCanvas` 正上方對齊建立 `#sheetOverlayLayer`，為下一步 `T2-2` 與 `T2-3` 的和弦座標標註與替換做好準備。
+  5. **修復 `file://` 下 PDF.js Fake Worker 載入錯誤 (`ISSUE-005`)**：
+     - 實測發現 `file://` 環境下瀏覽器會強制使 PDF.js 進入 Fake Worker（主執行緒）模式，原先以 `Blob(importScripts)` 設定 `workerSrc` 會在主執行緒因找不到 `importScripts` 而報錯 `WorkerMessageHandler undefined`。
+     - 改於 `index.html` 直接以 `<script>` 引入 `pdf.worker.min.js`，讓全域 `window.pdfjsWorker.WorkerMessageHandler` 直接就緒，徹底解決 `file://` 本地開啟 PDF 的問題。

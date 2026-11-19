@@ -324,8 +324,9 @@
 
   </main>
 
-  <!-- PDF.js 函式庫 (供 T2-1 解析多頁 PDF 樂譜並渲染為高清 Canvas) -->
+  <!-- PDF.js 與 Worker 函式庫 (同時載入 pdf.worker.min.js 以確保 file:// 本地直接開啟時 100% 免跨域錯誤) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js"></script>
   <!-- 內建範例琴譜離線資料與核心模組 -->
   <script src="js/sample-sheets-data.js"></script>
   <script src="js/music-theory.js"></script>

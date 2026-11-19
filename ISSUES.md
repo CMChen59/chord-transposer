@@ -55,5 +55,19 @@
 
 ---
 
+### [ISSUE-005] `file://` 本地直接開啟時 PDF.js 載入報錯 `Cannot read properties of undefined (reading 'WorkerMessageHandler')`
+- **狀態**：`🟢 Resolved (已修復)`
+- **發現日期**：2026-11-19
+- **問題描述**：
+  - 使用者於瀏覽器點擊「載入範例 1：《償還_Am.pdf》」時，出現錯誤訊息：`❌ PDF 載入失敗：Setting up fake worker failed: "Cannot read properties of undefined (reading 'WorkerMessageHandler')".`。
+- **原因分析**：
+  - 當透過 `file://` 協定開啟網頁時，瀏覽器基於安全限制（Origin `null`）不允許建立 Web Worker，因此 `PDF.js` 會自動降級為「主執行緒模式（Fake Worker）」，嘗試將 `workerSrc` 當作一般 `<script>` 載入到主執行緒並讀取 `window.pdfjsWorker.WorkerMessageHandler`。
+  - 原先在 `initPdfJsWorker()` 中將 `workerSrc` 設為內含 `importScripts(...)` 的 `Blob URL`，導致在主執行緒執行時因主執行緒無 `importScripts` 函式而失敗，`window.pdfjsWorker` 為 `undefined`。
+- **解決方案**：
+  - 於 `index.html` 中直接透過 `<script src=".../pdf.worker.min.js"></script>` 預先載入 `pdf.worker.min.js`（其 UMD 封裝會自動在 `window.pdfjsWorker` 註冊 `WorkerMessageHandler`）。
+  - 修改 `js/sheet-viewer.js` 的 `initPdfJsWorker()`，偵測到 `window.pdfjsWorker.WorkerMessageHandler` 已存在時直接使用，不再覆寫為 Blob URL。
+
+---
+
 ## 歷史已解決問題紀錄 (Resolved Issues)
 *(待開發階段實測後陸續歸檔於此)*

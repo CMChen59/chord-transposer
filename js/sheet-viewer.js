@@ -33,16 +33,18 @@
   let dom = {};
 
   /**
-   * 初始化 PDF.js Worker (使用 Blob 包裝以確保在 file:// 本地直接開啟時不會遭遇跨域 Worker 限制)
+   * 初始化 PDF.js Worker
+   * 注意：在 file:// 本地直接開啟 index.html 時，瀏覽器會阻擋 Web Worker 並自動切換為 Main Thread (Fake Worker) 模式；
+   * 只要在 index.html 中直接以 <script> 載入 pdf.worker.min.js，全域即存在 window.pdfjsWorker.WorkerMessageHandler，
+   * 此時不可將 workerSrc 設為含 importScripts 的 Blob URL（因為主執行緒沒有 importScripts），即可 100% 正常運作！
    */
   function initPdfJsWorker() {
     if (typeof window === 'undefined' || !window.pdfjsLib) return;
-    if (window.pdfjsLib.GlobalWorkerOptions.workerSrc) return;
-
-    try {
-      const blob = new Blob([`importScripts('${PDFJS_CDN_WORKER}');`], { type: 'application/javascript' });
-      window.pdfjsLib.GlobalWorkerOptions.workerSrc = URL.createObjectURL(blob);
-    } catch (e) {
+    if (window.pdfjsWorker && window.pdfjsWorker.WorkerMessageHandler) {
+      // 全域已載入 pdfjsWorker，PDF.js 會直接使用它，無須設定外部 workerSrc
+      return;
+    }
+    if (!window.pdfjsLib.GlobalWorkerOptions.workerSrc) {
       window.pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS_CDN_WORKER;
     }
   }
