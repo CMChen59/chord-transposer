@@ -40,9 +40,10 @@
 ---
 
 ## 第二階段 (Phase 2)：PDF / JPG 樂譜載入與 AI 視覺判讀
-- [ ] **T2-1：樂譜檔案載入與預覽模組**
-  - [ ] 整合 `PDF.js`，支援將多頁 PDF 樂譜（如《償還》）渲染為高清 Canvas 畫布
-  - [ ] 支援 JPG / PNG 圖片譜（如《川の流れのように》）拖曳上傳與縮放預覽
+- [x] **T2-1：樂譜檔案載入與預覽模組 (`js/sheet-viewer.js`, `js/sample-sheets-data.js`)** *(2026-11-19)*
+  - [x] 整合 `PDF.js`（搭配 Blob Worker 支援 `file://` 本地直接開啟），支援將多頁 PDF 樂譜（如《償還_Am.pdf》共 2 頁）渲染為 2 倍高清 Canvas 畫布並支援翻頁切換
+  - [x] 支援 JPG / PNG 圖片譜（如《川の流れのように_C.jpg》）拖曳上傳 (Drag & Drop)、檔案瀏覽選取與無損縮放預覽 (50% ~ 175%)
+  - [x] 內建兩份備份範例琴譜一鍵免選檔載入，並建立雙層對齊畫布 (`#sheetBaseCanvas` + `#sheetOverlayLayer`) 供後續 T2-2/T2-3 覆蓋和弦標籤
 - [ ] **T2-2：Gemini Vision API 智慧抓譜整合 (`sheet-parser.js`)**
   - [ ] 提供安全的 API Key 設定介面（儲存於瀏覽器 `localStorage`）
   - [ ] 設計針對電子琴簡譜的專用 Prompt（自動過濾 `R1~R8`、`Main A`、`Fill B` 與旋律數字，精準提取方框級數和弦與紅色英文和弦及其座標/小節位置）

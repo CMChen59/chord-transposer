@@ -55,15 +55,19 @@
       <!-- 由 js/app.js 動態渲染 -->
     </section>
 
-    <!-- 檢視模式分頁切換列 (保留原本極簡查表需求 + 互動鋼琴工作台) -->
+    <!-- 檢視模式分頁切換列 (保留原本極簡查表需求 + 琴譜載入預覽 + 互動鋼琴工作台) -->
     <nav class="view-tabs-nav" aria-label="功能模式切換">
       <button type="button" class="view-tab-btn active" data-tab="tab-reference-table">
         <span>📊</span>
         <span>模式一：調性對應和弦 ＆ 組成音總表 (直覺查表)</span>
       </button>
+      <button type="button" class="view-tab-btn" data-tab="tab-sheet-viewer">
+        <span>📄</span>
+        <span>模式二：琴譜 PDF / JPG 載入與轉調 (琴譜預覽)</span>
+      </button>
       <button type="button" class="view-tab-btn" data-tab="tab-interactive-studio">
         <span>🎹</span>
-        <span>模式二：互動鋼琴鍵盤 ＆ 整首和弦工作台 (進階練習)</span>
+        <span>模式三：互動鋼琴鍵盤 ＆ 整首和弦工作台 (進階練習)</span>
       </button>
     </nav>
 
@@ -137,7 +141,92 @@
     </div>
 
     <!-- ====================================================================== -->
-    <!-- 分頁 2 (完整保留)：互動鋼琴鍵盤 ＆ 整首和弦工作台 -->
+    <!-- 分頁 2 (Phase 2 T2-1)：琴譜 PDF / JPG 載入與高清畫布預覽 -->
+    <!-- ====================================================================== -->
+    <div id="tab-sheet-viewer" class="tab-pane">
+      <section class="card">
+        <div class="card-header">
+          <div class="card-title">
+            <span>📄</span>
+            <span>琴譜 PDF / JPG 載入與高清畫布預覽區 (支援多頁 PDF 翻頁與無損縮放)</span>
+          </div>
+          <div id="sheetViewerStatus" class="sheet-status-badge status-info">
+            請拖曳上傳您的 PDF / JPG 琴譜，或點擊下方按鈕一鍵載入內建範例琴譜
+          </div>
+        </div>
+
+        <!-- 檔案拖曳上傳區 & 內建範例一鍵載入區 -->
+        <div class="sheet-upload-grid">
+          <label id="sheetDropZone" class="sheet-drop-zone" for="sheetFileInput">
+            <div class="drop-zone-info">
+              <span class="drop-zone-icon">📤</span>
+              <div>
+                <div style="font-size: 1.02rem; font-weight: 800; color: #f8fafc;">
+                  將 PDF、JPG 或 PNG 琴譜檔案拖曳至此處，或點擊選擇檔案
+                </div>
+                <div style="font-size: 0.82rem; color: #94a3b8; margin-top: 2px;">
+                  支援多頁 PDF 樂譜（透過 PDF.js 自動轉為 2 倍高清畫布）與各類手機拍照／掃描圖片譜
+                </div>
+              </div>
+            </div>
+            <span class="btn btn-primary">📁 瀏覽選擇本機琴譜...</span>
+            <input type="file" id="sheetFileInput" accept=".pdf,image/jpeg,image/png,image/webp,image/bmp" style="display: none;" />
+          </label>
+
+          <div class="sample-loader-box">
+            <div style="font-size: 0.8rem; font-weight: 700; color: #94a3b8;">⚡ 免選檔！直接載入備份之範例琴譜：</div>
+            <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+              <button type="button" id="btnLoadSamplePdf" class="btn btn-amber">
+                📑 載入範例 1：《償還_Am.pdf》(2 頁 PDF)
+              </button>
+              <button type="button" id="btnLoadSampleJpg" class="btn btn-emerald">
+                🖼️ 載入範例 2：《川の流れのように_C.jpg》(JPG)
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 多頁切換與縮放控制工具列 -->
+        <div class="sheet-viewer-toolbar">
+          <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+            <button type="button" id="btnSheetPrevPage" class="btn" disabled>◀ 上一頁</button>
+            <span id="sheetPageIndicator" style="font-weight: 800; font-size: 0.92rem; min-width: 95px; text-align: center;">尚未載入頁數</span>
+            <button type="button" id="btnSheetNextPage" class="btn" disabled>下一頁 ▶</button>
+            <div id="sheetPageQuickBtns" style="display: flex; gap: 6px; margin-left: 6px;"></div>
+          </div>
+
+          <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+            <span style="font-size: 0.84rem; color: #94a3b8; font-weight: 700;">🔍 檢視縮放：</span>
+            <button type="button" id="btnSheetZoomOut" class="btn" title="縮小畫面 (-15%)">➖ 縮小</button>
+            <button type="button" id="btnSheetZoomReset" class="btn" title="重置為 100% 適應寬度">
+              <span id="sheetZoomLabel">100%</span> (重置)
+            </button>
+            <button type="button" id="btnSheetZoomIn" class="btn" title="放大畫面 (+15%)">➕ 放大</button>
+          </div>
+        </div>
+
+        <!-- 琴譜高清畫布舞台 (底層 Canvas + 上層 Overlay 覆蓋層) -->
+        <div class="sheet-stage-container">
+          <div id="sheetEmptyPlaceholder" class="sheet-empty-placeholder">
+            <div style="font-size: 3rem;">🎼</div>
+            <div style="font-size: 1.1rem; font-weight: 800; color: #cbd5e1;">尚未載入琴譜檔案</div>
+            <div style="font-size: 0.88rem; max-width: 460px;">
+              您可以點擊上方「📑 載入範例 1：《償還_Am.pdf》」或「🖼️ 載入範例 2：《川の流れのように_C.jpg》」立即預覽高清琴譜畫布，或拖曳您電腦中的 PDF / JPG 檔案進來！
+            </div>
+          </div>
+
+          <div id="sheetCanvasStageWrapper" style="display: none; justify-content: center; width: 100%;">
+            <div id="sheetViewportInner" class="sheet-viewport-inner">
+              <canvas id="sheetBaseCanvas"></canvas>
+              <div id="sheetOverlayLayer"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <!-- ====================================================================== -->
+    <!-- 分頁 3 (完整保留)：互動鋼琴鍵盤 ＆ 整首和弦工作台 -->
     <!-- ====================================================================== -->
     <div id="tab-interactive-studio" class="tab-pane">
 
@@ -235,9 +324,13 @@
 
   </main>
 
-  <!-- 核心樂理引擎、鋼琴視覺化模組與主程式 -->
+  <!-- PDF.js 函式庫 (供 T2-1 解析多頁 PDF 樂譜並渲染為高清 Canvas) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <!-- 內建範例琴譜離線資料與核心模組 -->
+  <script src="js/sample-sheets-data.js"></script>
   <script src="js/music-theory.js"></script>
   <script src="js/piano-visualizer.js"></script>
+  <script src="js/sheet-viewer.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>

@@ -167,7 +167,27 @@ C CM7 | C7 | Em | bE | Dm | Em | Fm | Gsus4 | C`
     els.degreeFilterBtns = document.querySelectorAll('#degreeFilterBtns button');
     els.chordRefTableBody = document.getElementById('chordRefTableBody');
 
-    // 模式二：單一和弦查詢與鋼琴區 + 批次和弦譜轉調區
+    // 模式二 (T2-1)：琴譜 PDF / JPG 載入與高清預覽區
+    els.sheetViewerStatus = document.getElementById('sheetViewerStatus');
+    els.sheetDropZone = document.getElementById('sheetDropZone');
+    els.sheetFileInput = document.getElementById('sheetFileInput');
+    els.btnLoadSamplePdf = document.getElementById('btnLoadSamplePdf');
+    els.btnLoadSampleJpg = document.getElementById('btnLoadSampleJpg');
+    els.btnSheetPrevPage = document.getElementById('btnSheetPrevPage');
+    els.sheetPageIndicator = document.getElementById('sheetPageIndicator');
+    els.btnSheetNextPage = document.getElementById('btnSheetNextPage');
+    els.sheetPageQuickBtns = document.getElementById('sheetPageQuickBtns');
+    els.btnSheetZoomOut = document.getElementById('btnSheetZoomOut');
+    els.btnSheetZoomReset = document.getElementById('btnSheetZoomReset');
+    els.sheetZoomLabel = document.getElementById('sheetZoomLabel');
+    els.btnSheetZoomIn = document.getElementById('btnSheetZoomIn');
+    els.sheetEmptyPlaceholder = document.getElementById('sheetEmptyPlaceholder');
+    els.sheetCanvasStageWrapper = document.getElementById('sheetCanvasStageWrapper');
+    els.sheetViewportInner = document.getElementById('sheetViewportInner');
+    els.sheetBaseCanvas = document.getElementById('sheetBaseCanvas');
+    els.sheetOverlayLayer = document.getElementById('sheetOverlayLayer');
+
+    // 模式三：單一和弦查詢與鋼琴區 + 批次和弦譜轉調區
     els.chordLookupInput = document.getElementById('chordLookupInput');
     els.btnPlayCurrentChord = document.getElementById('btnPlayCurrentChord');
     els.quickChordChips = document.getElementById('quickChordChips');
@@ -740,13 +760,57 @@ C CM7 | C7 | Em | bE | Dm | Em | Fm | Gsus4 | C`
       }
     });
 
-    // 模式二：範例譜載入與即時文字編輯
+    // 模式三：範例譜載入與即時文字編輯
     els.btnPresetChangHuan.addEventListener('click', () => loadPresetSheet('changHuan'));
     els.btnPresetKawa.addEventListener('click', () => loadPresetSheet('kawaNoNagare'));
 
     els.sheetInputTextarea.addEventListener('input', () => {
       renderTransposedSheet();
     });
+
+    // 模式二 (T2-1)：初始化 PDF / JPG 琴譜載入與預覽模組
+    if (window.SheetViewer) {
+      SheetViewer.init({
+        statusText: els.sheetViewerStatus,
+        dropZone: els.sheetDropZone,
+        fileInput: els.sheetFileInput,
+        btnPrevPage: els.btnSheetPrevPage,
+        pageIndicator: els.sheetPageIndicator,
+        btnNextPage: els.btnSheetNextPage,
+        pageQuickBtns: els.sheetPageQuickBtns,
+        btnZoomOut: els.btnSheetZoomOut,
+        btnZoomReset: els.btnSheetZoomReset,
+        zoomLabel: els.sheetZoomLabel,
+        btnZoomIn: els.btnSheetZoomIn,
+        emptyPlaceholder: els.sheetEmptyPlaceholder,
+        canvasStageWrapper: els.sheetCanvasStageWrapper,
+        sheetViewportInner: els.sheetViewportInner,
+        baseCanvas: els.sheetBaseCanvas,
+        overlayLayer: els.sheetOverlayLayer
+      });
+
+      if (els.btnLoadSamplePdf) {
+        els.btnLoadSamplePdf.addEventListener('click', async () => {
+          state.sourceKey = 'Am';
+          state.targetKey = 'Cm';
+          els.sourceKeySelect.value = state.sourceKey;
+          els.targetKeySelect.value = state.targetKey;
+          updateAllViews();
+          await SheetViewer.loadBuiltInSample('changHuanPdf');
+        });
+      }
+
+      if (els.btnLoadSampleJpg) {
+        els.btnLoadSampleJpg.addEventListener('click', async () => {
+          state.sourceKey = 'C';
+          state.targetKey = 'D';
+          els.sourceKeySelect.value = state.sourceKey;
+          els.targetKeySelect.value = state.targetKey;
+          updateAllViews();
+          await SheetViewer.loadBuiltInSample('kawaJpg');
+        });
+      }
+    }
   }
 
   document.addEventListener('DOMContentLoaded', () => {
