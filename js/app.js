@@ -761,24 +761,25 @@ C CM7 | C7 | Em | bE | Dm | Em | Fm | Gsus4 | C`
   }
 
   /**
-   * 渲染 Google API 官方回傳之 Token 消耗統計與今日預估剩餘免費額度
+   * 渲染每日預估剩餘免費額度（精簡版：依使用者建議移除複雜的 Token 數值，專注於每日剩餘可用次數）
    */
   function renderTokenUsageStatsBar(lastSessionTokens = null) {
     if (!window.SheetParser || !els.tokenUsageStatsBar) return;
     const stats = SheetParser.getTokenUsageStats();
-    const lastDisplay = lastSessionTokens !== null
-      ? (lastSessionTokens === 0
-          ? `<strong style="color:#34d399;">0 Token (快取命中/免連網)</strong>`
-          : `<strong style="color:#fde68a;">${lastSessionTokens.toLocaleString()} Tokens</strong> <span style="color:#94a3b8;">(最近單頁: 輸入 ${stats.lastPromptTokens} / 輸出 ${stats.lastOutputTokens})</span>`)
-      : (stats.lastTotalTokens > 0
-          ? `<strong style="color:#fde68a;">${stats.lastTotalTokens.toLocaleString()} Tokens</strong> <span style="color:#94a3b8;">(輸入 ${stats.lastPromptTokens} / 輸出 ${stats.lastOutputTokens})</span>`
-          : `<strong style="color:#34d399;">0 Token</strong>`);
+
+    let sessionStatusHTML = '';
+    if (lastSessionTokens !== null) {
+      if (lastSessionTokens === 0) {
+        sessionStatusHTML = `<span style="color:#34d399; font-weight:700;">⚡ 本次免連網 (0 消耗快取)</span> <span>｜</span>`;
+      } else {
+        sessionStatusHTML = `<span style="color:#fde68a; font-weight:700;">✅ 本次 AI 辨識完成</span> <span>｜</span>`;
+      }
+    }
 
     els.tokenUsageStatsBar.innerHTML = `
-      <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 14px;">
-        <span>📊 <strong>本次辨識消耗：</strong>${lastDisplay}</span>
-        <span>｜ 📅 <strong>今日累計用量 (${stats.date})：</strong><strong style="color:#60a5fa;">${stats.todayRequests} 次呼叫</strong> (${stats.todayTokens.toLocaleString()} Tokens)</span>
-        <span>｜ 🔋 <strong>今日免費額度預估剩餘：</strong><strong style="color:#34d399;">約 ${stats.remainingRequests.toLocaleString()} / ${stats.freeDailyRequestLimit.toLocaleString()} 次 (${stats.remainingPercent}%)</strong></span>
+      <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px;">
+        ${sessionStatusHTML}
+        <span>🔋 <strong>今日免費額度預估剩餘：</strong><strong style="color:#34d399; font-size:1.02rem;">約 ${stats.remainingRequests.toLocaleString()} / ${stats.freeDailyRequestLimit.toLocaleString()} 次</strong> <span style="color:#94a3b8;">(今日已使用 ${stats.todayRequests} 次)</span></span>
       </div>
       <a href="https://aistudio.google.com/app/plan_information" target="_blank" rel="noopener" style="color: #93c5fd; text-decoration: none; font-weight: 700;">
         🔗 查看 Google 官方額度後台 ↗
