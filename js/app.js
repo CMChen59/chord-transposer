@@ -219,6 +219,11 @@ C CM7 | C7 | Em | bE | Dm | Em | Fm | Gsus4 | C`
     els.btnSheetZoomReset = document.getElementById('btnSheetZoomReset');
     els.sheetZoomLabel = document.getElementById('sheetZoomLabel');
     els.btnSheetZoomIn = document.getElementById('btnSheetZoomIn');
+    // T3-1 & T3-2 匯出 JPG / PDF 與專案檔 (.json) 按鈕
+    els.btnExportPageJpg = document.getElementById('btnExportPageJpg');
+    els.btnExportAllPdf = document.getElementById('btnExportAllPdf');
+    els.btnExportProjectJson = document.getElementById('btnExportProjectJson');
+    els.projectJsonFileInput = document.getElementById('projectJsonFileInput');
     els.sheetEmptyPlaceholder = document.getElementById('sheetEmptyPlaceholder');
     els.sheetCanvasStageWrapper = document.getElementById('sheetCanvasStageWrapper');
     els.sheetViewportInner = document.getElementById('sheetViewportInner');
@@ -1155,25 +1160,32 @@ C CM7 | C7 | Em | bE | Dm | Em | Fm | Gsus4 | C`
         onPageChange: (pageObj, pageIdx, totalPages) => {
           if (els.btnRunAiRecognize) els.btnRunAiRecognize.disabled = false;
           if (els.btnForceAiRecognize) els.btnForceAiRecognize.disabled = false;
+          if (els.btnExportPageJpg) els.btnExportPageJpg.disabled = false;
+          if (els.btnExportAllPdf) els.btnExportAllPdf.disabled = false;
+          if (els.btnExportProjectJson) els.btnExportProjectJson.disabled = false;
 
-          // 若該頁尚無和弦資料，但快取或內建範例有預先辨識資料，自動 0 Token 載入！
+          // 自動檢查整份琴譜每一頁的快取，確保未翻到的第 2 頁也能在匯出全曲 PDF 時一併帶入已快取的和弦
           const vState = SheetViewer.getState();
-          if ((!pageObj.chords || pageObj.chords.length === 0) && window.SheetParser) {
-            const cached = SheetParser.getCachedRecognition(vState.fileName, pageObj.pageNumber);
-            if (cached && Array.isArray(cached.chords) && cached.chords.length > 0) {
-              pageObj.chords = cached.chords;
-              const isBuiltin = SheetParser.hasBuiltInSampleCache(vState.fileName, pageObj.pageNumber);
-              els.aiRecognizeSummary.textContent = isBuiltin
-                ? `⚡ 已自動套用內建範例精準和弦座標 (第 ${pageObj.pageNumber} 頁共 ${pageObj.chords.length} 個和弦，0 Token)`
-                : `⚡ 已從本機快取載入第 ${pageObj.pageNumber} 頁辨識結果 (${pageObj.chords.length} 個和弦，0 Token)`;
-              els.aiRecognizeSummary.style.color = '#6ee7b7';
-            } else {
-              els.aiRecognizeSummary.textContent = `第 ${pageObj.pageNumber} / ${totalPages} 頁已就緒，請點擊「🤖 智慧辨識本頁和弦」`;
-              els.aiRecognizeSummary.style.color = '#94a3b8';
-            }
-          } else if (pageObj.chords && pageObj.chords.length > 0) {
-            els.aiRecognizeSummary.textContent = `✅ 第 ${pageObj.pageNumber} 頁已顯示 ${pageObj.chords.length} 個轉調和弦標籤`;
+          if (window.SheetParser && Array.isArray(vState.pages)) {
+            vState.pages.forEach(p => {
+              if (!p.chords || p.chords.length === 0) {
+                const cachedPage = SheetParser.getCachedRecognition(vState.fileName, p.pageNumber);
+                if (cachedPage && Array.isArray(cachedPage.chords) && cachedPage.chords.length > 0) {
+                  p.chords = cachedPage.chords;
+                }
+              }
+            });
+          }
+
+          if (pageObj.chords && pageObj.chords.length > 0) {
+            const isBuiltin = window.SheetParser && SheetParser.hasBuiltInSampleCache(vState.fileName, pageObj.pageNumber);
+            els.aiRecognizeSummary.textContent = isBuiltin
+              ? `⚡ 已自動套用內建範例精準和弦座標 (第 ${pageObj.pageNumber} 頁共 ${pageObj.chords.length} 個和弦，0 Token)`
+              : `✅ 第 ${pageObj.pageNumber} 頁已載入 ${pageObj.chords.length} 個轉調和弦標籤 (0 Token 快取)`;
             els.aiRecognizeSummary.style.color = '#6ee7b7';
+          } else {
+            els.aiRecognizeSummary.textContent = `第 ${pageObj.pageNumber} / ${totalPages} 頁已就緒，請點擊「🤖 智慧辨識全曲所有頁面」`;
+            els.aiRecognizeSummary.style.color = '#94a3b8';
           }
 
           renderSheetOverlayAndChordsBar();
@@ -1398,6 +1410,134 @@ C CM7 | C7 | Em | bE | Dm | Em | Fm | Gsus4 | C`
           state.inlinePianoVisible = !state.inlinePianoVisible;
           if (els.sheetInlinePianoWrapper) {
             els.sheetInlinePianoWrapper.style.display = state.inlinePianoVisible ? 'block' : 'none';
+          }
+        });
+      }
+
+      // ======================================================================
+      // T3-1 & T3-2：另存轉調後新琴譜 (JPG / PDF) 與專案檔 (.json) 事件綁定
+      // ======================================================================
+
+      function getExportRenderOptions() {
+        return {
+          sourceKey: state.sourceKey,
+          targetKey: state.targetKey,
+          displayMode: state.displayMode,
+          tagStyle: state.tagStyle,
+          tagFontSize: state.tagFontSize,
+          tagsVisible: state.tagsVisible
+        };
+      }
+
+      // 1. 另存本頁為高清 JPG 圖片 (T3-1A)
+      if (els.btnExportPageJpg && window.SheetExporter) {
+        els.btnExportPageJpg.addEventListener('click', async () => {
+          try {
+            els.btnExportPageJpg.disabled = true;
+            const outName = await SheetExporter.exportCurrentPageAsJpg(
+              SheetViewer.getState(),
+              getExportRenderOptions()
+            );
+            els.aiRecognizeSummary.textContent = `🖼️ 已成功匯出並下載本頁圖片：「${outName}」`;
+            els.aiRecognizeSummary.style.color = '#6ee7b7';
+          } catch (err) {
+            els.aiRecognizeSummary.textContent = `⚠️ 匯出 JPG 失敗：${err.message}`;
+            els.aiRecognizeSummary.style.color = '#fda4af';
+          } finally {
+            els.btnExportPageJpg.disabled = false;
+          }
+        });
+      }
+
+      // 2. 另存全曲所有頁面為單一新 PDF 琴譜 (T3-1B)
+      if (els.btnExportAllPdf && window.SheetExporter) {
+        els.btnExportAllPdf.addEventListener('click', async () => {
+          try {
+            els.btnExportAllPdf.disabled = true;
+            const outName = await SheetExporter.exportAllPagesAsPdf(
+              SheetViewer.getState(),
+              getExportRenderOptions(),
+              (cur, total) => {
+                els.aiRecognizeSummary.textContent = `⏳ 正在合成高清 PDF 琴譜：第 ${cur} / ${total} 頁...`;
+                els.aiRecognizeSummary.style.color = '#fde68a';
+              }
+            );
+            els.aiRecognizeSummary.textContent = `📑 已成功匯出並下載全曲 PDF 琴譜：「${outName}」`;
+            els.aiRecognizeSummary.style.color = '#6ee7b7';
+          } catch (err) {
+            els.aiRecognizeSummary.textContent = `⚠️ 匯出 PDF 失敗：${err.message}`;
+            els.aiRecognizeSummary.style.color = '#fda4af';
+          } finally {
+            els.btnExportAllPdf.disabled = false;
+          }
+        });
+      }
+
+      // 3. 儲存當前校對完成的琴譜為 .json 專案檔 (T3-2A)
+      if (els.btnExportProjectJson && window.SheetExporter) {
+        els.btnExportProjectJson.addEventListener('click', () => {
+          try {
+            const outName = SheetExporter.exportProjectJson(
+              SheetViewer.getState(),
+              getExportRenderOptions()
+            );
+            els.aiRecognizeSummary.textContent = `💾 已成功儲存琴譜專案檔：「${outName}」(下次可直接載入免重新辨識)`;
+            els.aiRecognizeSummary.style.color = '#6ee7b7';
+          } catch (err) {
+            els.aiRecognizeSummary.textContent = `⚠️ 儲存專案檔失敗：${err.message}`;
+            els.aiRecognizeSummary.style.color = '#fda4af';
+          }
+        });
+      }
+
+      // 4. 載入 .json 琴譜專案檔 (T3-2B)
+      if (els.projectJsonFileInput && window.SheetExporter) {
+        els.projectJsonFileInput.addEventListener('change', async (e) => {
+          const file = e.target.files && e.target.files[0];
+          if (!file) return;
+          try {
+            const proj = await SheetExporter.parseProjectJsonFile(file);
+            if (proj.sourceKey) {
+              state.sourceKey = proj.sourceKey;
+              els.sourceKeySelect.value = state.sourceKey;
+            }
+            if (proj.targetKey) {
+              state.targetKey = proj.targetKey;
+              els.targetKeySelect.value = state.targetKey;
+            }
+            if (proj.displayMode) {
+              state.displayMode = proj.displayMode;
+              els.modeButtons.forEach(b => b.classList.toggle('active', b.getAttribute('data-mode') === state.displayMode));
+            }
+            if (proj.tagStyle && els.tagStyleSelect) {
+              state.tagStyle = proj.tagStyle;
+              els.tagStyleSelect.value = state.tagStyle;
+            }
+            if (proj.tagFontSize && els.tagSizeSelect) {
+              state.tagFontSize = Number(proj.tagFontSize) || 15;
+              els.tagSizeSelect.value = String(state.tagFontSize);
+            }
+
+            // 將專案檔各頁和弦同步寫入本機快取
+            if (window.SheetParser && Array.isArray(proj.pages)) {
+              proj.pages.forEach(p => {
+                SheetParser.saveCachedRecognition(proj.fileName, p.pageNumber, {
+                  detectedSourceKey: proj.sourceKey,
+                  detectedTargetKey: proj.targetKey,
+                  chords: p.chords || []
+                });
+              });
+            }
+
+            SheetViewer.loadFromProjectData(proj);
+            updateAllViews();
+            els.aiRecognizeSummary.textContent = `📂 已成功載入專案檔「${file.name}」（共 ${proj.pages.length} 頁，0 Token）`;
+            els.aiRecognizeSummary.style.color = '#6ee7b7';
+          } catch (err) {
+            els.aiRecognizeSummary.textContent = `⚠️ 載入專案檔失敗：${err.message}`;
+            els.aiRecognizeSummary.style.color = '#fda4af';
+          } finally {
+            els.projectJsonFileInput.value = '';
           }
         });
       }

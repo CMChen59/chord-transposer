@@ -301,7 +301,7 @@
           </div>
         </div>
 
-        <!-- 多頁切換與縮放控制工具列 -->
+        <!-- 多頁切換、縮放控制與 T3-1/T3-2 另存 JPG / PDF / 專案檔工具列 -->
         <div class="sheet-viewer-toolbar">
           <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
             <button type="button" id="btnSheetPrevPage" class="btn" disabled>◀ 上一頁</button>
@@ -311,12 +311,29 @@
           </div>
 
           <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
-            <span style="font-size: 0.84rem; color: #94a3b8; font-weight: 700;">🔍 檢視縮放：</span>
-            <button type="button" id="btnSheetZoomOut" class="btn" title="縮小畫面 (-15%)">➖ 縮小</button>
+            <span style="font-size: 0.84rem; color: #94a3b8; font-weight: 700;">🔍 縮放：</span>
+            <button type="button" id="btnSheetZoomOut" class="btn" title="縮小畫面 (-15%)">➖</button>
             <button type="button" id="btnSheetZoomReset" class="btn" title="重置為 100% 適應寬度">
-              <span id="sheetZoomLabel">100%</span> (重置)
+              <span id="sheetZoomLabel">100%</span>
             </button>
-            <button type="button" id="btnSheetZoomIn" class="btn" title="放大畫面 (+15%)">➕ 放大</button>
+            <button type="button" id="btnSheetZoomIn" class="btn" title="放大畫面 (+15%)">➕</button>
+          </div>
+
+          <!-- T3-1 & T3-2：另存轉調後新琴譜 (JPG / PDF) 與專案檔 (.json) -->
+          <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+            <button type="button" id="btnExportPageJpg" class="btn btn-emerald" disabled title="將目前這一頁轉好調的琴譜另存為高清 JPG 圖片">
+              🖼️ 另存本頁 JPG
+            </button>
+            <button type="button" id="btnExportAllPdf" class="btn btn-primary" disabled title="將全曲所有頁面（含轉調和弦標籤）打包另存為新 PDF 琴譜">
+              📑 另存全曲 PDF
+            </button>
+            <button type="button" id="btnExportProjectJson" class="btn btn-amber" disabled title="將整份琴譜與微調好的和弦座標存為 .json 專案檔，日後載入 0 Token 秒開">
+              💾 儲存專案檔 (.json)
+            </button>
+            <label for="projectJsonFileInput" class="btn" style="cursor: pointer;" title="載入之前儲存的 .json 琴譜專案檔 (免重新辨識)">
+              📂 載入專案檔
+            </label>
+            <input type="file" id="projectJsonFileInput" accept=".json,application/json" style="display: none;" />
           </div>
         </div>
 
@@ -442,12 +459,15 @@
   <!-- PDF.js 與 Worker 函式庫 (同時載入 pdf.worker.min.js 以確保 file:// 本地直接開啟時 100% 免跨域錯誤) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js"></script>
+  <!-- jsPDF 函式庫 (供 T3-1 將轉調後的多頁高清琴譜匯出為新 PDF 檔案) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <!-- 內建範例琴譜離線資料與核心模組 -->
   <script src="js/sample-sheets-data.js"></script>
   <script src="js/music-theory.js"></script>
   <script src="js/piano-visualizer.js"></script>
   <script src="js/sheet-parser.js"></script>
   <script src="js/sheet-viewer.js"></script>
+  <script src="js/sheet-exporter.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>

@@ -404,12 +404,42 @@
     return viewerState.pages[viewerState.currentPageIndex] || null;
   }
 
+  /**
+   * T3-2：從已儲存的 .json 專案檔資料直接還原所有頁面畫布與和弦座標
+   */
+  function loadFromProjectData(projectData) {
+    if (!projectData || !Array.isArray(projectData.pages) || projectData.pages.length === 0) {
+      setStatus('❌ 載入專案檔失敗：無有效的頁面資料', 'error');
+      return false;
+    }
+
+    viewerState.fileName = projectData.fileName || '已存檔琴譜';
+    viewerState.fileType = projectData.fileType || 'pdf';
+    viewerState.pages = projectData.pages.map((p, idx) => ({
+      pageNumber: p.pageNumber || (idx + 1),
+      width: p.width || 1190,
+      height: p.height || 1684,
+      dataUrl: p.dataUrl,
+      chords: Array.isArray(p.chords) ? p.chords : []
+    }));
+    viewerState.currentPageIndex = 0;
+    viewerState.isLoading = false;
+
+    renderCurrentPageToStage();
+    setStatus(
+      `✅ 已載入琴譜專案檔：${viewerState.fileName}（共 ${viewerState.pages.length} 頁｜含已校對之和弦座標，0 Token）`,
+      'success'
+    );
+    return true;
+  }
+
   return {
     init,
     getState,
     getCurrentPage,
     handleUserFile,
     loadBuiltInSample,
+    loadFromProjectData,
     goToPage,
     changeZoom,
     resetZoom

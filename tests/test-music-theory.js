@@ -10,6 +10,7 @@ const assert = require('assert');
 const MusicTheory = require('../js/music-theory.js');
 const PianoVisualizer = require('../js/piano-visualizer.js');
 const SheetParser = require('../js/sheet-parser.js');
+const SheetExporter = require('../js/sheet-exporter.js');
 
 console.log('=== 開始執行 T1-1 核心樂理解析器測試 ===\n');
 
@@ -154,5 +155,13 @@ for (const sk of sampleKeys) {
   });
   console.log(`  ✔ 預載快取 [${sk}] 共 ${pageData.chords.length} 個和弦座標與轉調驗證 100% 通過`);
 }
+
+// 6. 測試 T3-1 & T3-2 匯出標籤文字格式化與配色主題定義 (SheetExporter)
+console.log('\n【測試組 6】T3-1 & T3-2 琴譜匯出標籤文字格式化與 4 種視覺主題驗證：');
+assert.strictEqual(SheetExporter.formatTransposedTagText('37-9+5', 'Am', 'Cm', 'english'), 'G7(b9#5)');
+assert.strictEqual(SheetExporter.formatTransposedTagText('37-9+5', 'Am', 'Cm', 'number'), '57-9+5');
+assert.strictEqual(SheetExporter.formatTransposedTagText('37-9+5', 'Am', 'Cm', 'practice'), '37-9+5➔G7(b9#5)');
+assert.deepStrictEqual(Object.keys(SheetExporter.TAG_THEME_STYLES), ['red-box', 'clean-cover', 'blue-box', 'yellow-box']);
+console.log('  ✔ 匯出標籤三種模式格式化 (英文 / 固定調數字 / 練功對照) 與 4 種匯出配色主題驗證 100% 通過');
 
 console.log('\n🎉 所有測試案例 100% 通過！');
