@@ -213,5 +213,16 @@
   3. **動態秒數計時與動畫提示**：辨識中文字即時更新 `(已耗時 X 秒...)`，是否正在運行一目了然。
   4. **提供「🛑 取消辨識」紅色按鈕**：辨識中可隨時手動一鍵中斷，秒解鎖按鈕。
 
+---
+
+### 19. Google Free Tier 官方配額實測分析：`gemini-3.8-flash` 每日上限為 20 次 (ISSUE-008)
+- **問題現況**：
+  - 使用者收到 Google 官方報錯：`Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 20, model: gemini-3.8-flash, description: Generate content requests per day limit exceeded on Free Tier... Please retry in 17h19m...`。
+- **原因分析**：
+  - Google AI Studio 對最新發佈的旗艦模型 `gemini-3.8-flash` 實施較嚴格的免費方案限制：每天上限只有 20 次請求 (RPD = 20)，而非早期 1.5 模型的 1,500 次。
+- **因應對策與修改**：
+  1. 將 `js/sheet-parser.js` 內的 `FREE_DAILY_REQUEST_LIMIT` 校正為 20，讓前端「今日免費額度預估剩餘」精準顯示真實可用次數。
+  2. 強化 Quota Exceeded 的繁體中文錯誤引導，自動提取重置倒數時間，並引導使用者切換另一組 Google 帳號 API Key 或載入已儲存之專案檔 (.json)。
+
 
 

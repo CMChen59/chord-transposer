@@ -96,5 +96,17 @@
 
 ---
 
+### [ISSUE-008] `gemini-3.8-flash` 免費額度上限實為每日 20 次 (RPD=20)，觸發 Quota Exceeded
+- **狀態**：`🟢 Resolved (已校正額度常數並最佳化提示)`
+- **發現日期**：2026-11-21
+- **問題描述**：
+  - 使用者呼叫辨識時報錯：`Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 20, model: gemini-3.8-flash, description: Generate content requests per day limit exceeded on Free Tier. Please retry in 17h19m...`。
+  - 原先程式預設以舊版 1.5-flash 的每日 1,500 次為基準顯示剩餘額度，但 Google AI Studio 對最新旗艦模型 `gemini-3.8-flash` 在 Free Tier 的每日上限收緊為 20 次 (RPD = 20)。
+- **解決方案**：
+  1. 將 `js/sheet-parser.js` 的 `FREE_DAILY_REQUEST_LIMIT` 由 1,500 校正為 20，確保前台「今日免費額度預估剩餘」準確反映官方限制。
+  2. 於 API 錯誤攔截器中精確解析 `Quota exceeded` 與 `retry in XhYm` 倒數時間，以繁體中文清楚引導使用者「更換另一個 Google 帳號的 API Key」或「載入已儲存的專案檔 (.json)」。
+
+---
+
 ## 歷史已解決問題紀錄 (Resolved Issues)
 *(待開發階段實測後陸續歸檔於此)*

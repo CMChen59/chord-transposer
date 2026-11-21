@@ -26,8 +26,9 @@
   const STORAGE_KEY_TOKEN_STATS = 'chord_transposer_token_stats_v1';
   const DEFAULT_GEMINI_MODEL = 'gemini-3.8-flash';
 
-  // Google AI Studio 免費方案 (Free Tier) 每日參考額度上限
-  const FREE_DAILY_REQUEST_LIMIT = 1500;
+  // Google AI Studio 免費方案 (Free Tier) 每日額度上限
+  // 注意：Google 針對最新旗艦模型 gemini-3.8-flash 的 Free Tier 限制為每日 20 次 (RPD = 20)
+  const FREE_DAILY_REQUEST_LIMIT = 20;
   const FREE_DAILY_TOKEN_LIMIT = 1000000;
 
   // ============================================================================
@@ -543,6 +544,12 @@
               }
             });
             continue;
+          }
+
+          if (errDetail.toLowerCase().includes('quota exceeded') || errDetail.includes('limit: 20')) {
+            const timeMatch = errDetail.match(/retry in ([0-9]+h[0-9]+m|[0-9]+m|[0-9]+s)/i);
+            const retryHint = timeMatch ? `（Google 預計於 ${timeMatch[1]} 後重置額度）` : '';
+            throw new Error(`今日免費額度已達上限：Google 針對此模型的免費配額為每日 20 次${retryHint}。建議更換另一個 Google 帳號申請新 API Key 貼上即可秒恢復，或直接載入已儲存之專案檔 (.json)。`);
           }
 
           throw new Error(`Gemini API 呼叫失敗 (${errDetail})`);
