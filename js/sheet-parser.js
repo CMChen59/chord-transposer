@@ -158,26 +158,93 @@
   };
 
   // ============================================================================
-  // 2. API Key 與模型設定管理 (儲存於瀏覽器本機 localStorage)
+  // 2. API Key 與模型設定管理 (支援多組 Key 金鑰池與輪替，儲存於 localStorage)
   // ============================================================================
 
-  function getApiKey() {
-    if (typeof localStorage === 'undefined') return '';
-    return (localStorage.getItem(STORAGE_KEY_API) || '').trim();
+  let activeApiKeyIndex = 0;
+
+  /**
+   * 取得所有設定之 API Keys 陣列 (支援換行、逗號、分號分隔多組 Key)
+   * @returns {string[]}
+   */
+  function getApiKeys() {
+    if (typeof localStorage === 'undefined') return [];
+    const raw = (localStorage.getItem(STORAGE_KEY_API) || '').trim();
+    if (!raw) return [];
+    return raw
+      .split(/[\r\n,;]+/)
+      .map(k => k.trim())
+      .filter(k => k.length > 10);
   }
 
-  function setApiKey(key) {
+  /**
+   * 取得當前作用中的 API Key
+   * @returns {string}
+   */
+  function getApiKey() {
+    const keys = getApiKeys();
+    if (keys.length === 0) return '';
+    return keys[activeApiKeyIndex % keys.length];
+  }
+
+  /**
+   * 取得未經解析的原始輸入字串 (供 UI 編輯器還原文字)
+   * @returns {string}
+   */
+  function getRawApiKeysText() {
+    if (typeof localStorage === 'undefined') return '';
+    return localStorage.getItem(STORAGE_KEY_API) || '';
+  }
+
+  /**
+   * 取得當前作用中 Key 的索引 (0-based)
+   * @returns {number}
+   */
+  function getActiveApiKeyIndex() {
+    const keys = getApiKeys();
+    if (keys.length === 0) return 0;
+    return activeApiKeyIndex % keys.length;
+  }
+
+  /**
+   * 切換至下一組 API Key
+   * @returns {string}
+   */
+  function rotateApiKey() {
+    const keys = getApiKeys();
+    if (keys.length <= 1) return getApiKey();
+    activeApiKeyIndex = (activeApiKeyIndex + 1) % keys.length;
+    return keys[activeApiKeyIndex];
+  }
+
+  /**
+   * 取得金鑰池狀態資訊
+   * @returns {{ total: number, activeIndex: number, activeKeyMasked: string }}
+   */
+  function getApiKeyPoolInfo() {
+    const keys = getApiKeys();
+    return {
+      total: keys.length,
+      activeIndex: keys.length > 0 ? (activeApiKeyIndex % keys.length) : 0,
+      activeKeyMasked: keys.length > 0
+        ? keys[activeApiKeyIndex % keys.length].replace(/^(.{6})(.*)(.{4})$/, '$1...$3')
+        : ''
+    };
+  }
+
+  function setApiKey(keysText) {
     if (typeof localStorage === 'undefined') return;
-    const clean = (key || '').trim();
+    const clean = (keysText || '').trim();
     if (clean) {
       localStorage.setItem(STORAGE_KEY_API, clean);
     } else {
       localStorage.removeItem(STORAGE_KEY_API);
     }
+    activeApiKeyIndex = 0; // 重置作用中的指針
   }
 
   function hasApiKey() {
-    return getApiKey().length > 10;
+    return getApiKeys().length > 0;
   }
 
   function getModelName() {
@@ -248,7 +315,10 @@
   }
 
   function enrichStatsWithQuota(stats) {
-    const remainingRequests = Math.max(0, FREE_DAILY_REQUEST_LIMIT - stats.todayRequests);
+    const keys = getApiKeys();
+    const keyCount = Math.max(1, keys.length);
+    const totalDailyRequestLimit = FREE_DAILY_REQUEST_LIMIT * keyCount;
+    const remainingRequests = Math.max(0, totalDailyRequestLimit - stats.todayRequests);
     const remainingTokens = Math.max(0, FREE_DAILY_TOKEN_LIMIT - stats.todayTokens);
     const remainingPercent = Math.max(
       0,
@@ -256,7 +326,8 @@
     );
     return {
       ...stats,
-      freeDailyRequestLimit: FREE_DAILY_REQUEST_LIMIT,
+      keyCount,
+      freeDailyRequestLimit: totalDailyRequestLimit,
       freeDailyTokenLimit: FREE_DAILY_TOKEN_LIMIT,
       remainingRequests,
       remainingTokens,
@@ -617,18 +688,16 @@
       }
     }
 
-    // 2. 準備呼叫 Gemini Vision API
-    const apiKey = (options.apiKey || getApiKey()).trim();
-    if (!apiKey) {
-      throw new Error('MISSING_API_KEY: 請先在上方「🔑 Gemini API Key 設定」輸入您的免費 API Key（或使用內建範例譜的 0 Token 預載辨識結果）。');
+    // 2. 準備呼叫 Gemini Vision API (支援多組 Key 智慧輪替與故障轉移)
+    const allKeys = options.apiKey ? [options.apiKey.trim()] : getApiKeys();
+    if (allKeys.length === 0) {
+      throw new Error('MISSING_API_KEY: 請先在上方「🔑 Gemini API Key 設定」輸入您的免費 API Key（支援多組，每行輸入一組）。');
     }
 
     const model = options.model || getModelName();
     const base64Data = imageDataUrl.includes(',') ? imageDataUrl.split(',')[1] : imageDataUrl;
     const mimeMatch = imageDataUrl.match(/^data:(image\/[a-zA-Z0-9+.-]+);base64,/);
     const mimeType = mimeMatch ? mimeMatch[1] : 'image/jpeg';
-
-    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`;
 
     const payload = {
       contents: [
@@ -650,7 +719,45 @@
       }
     };
 
-    const resultJson = await callGeminiApiWithRetry(endpoint, payload, options);
+    let resultJson = null;
+    const totalKeys = allKeys.length;
+
+    for (let keyAttempt = 0; keyAttempt < totalKeys; keyAttempt++) {
+      const currentKeyIndex = (activeApiKeyIndex + keyAttempt) % totalKeys;
+      const currentApiKey = allKeys[currentKeyIndex];
+      const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(currentApiKey)}`;
+
+      try {
+        resultJson = await callGeminiApiWithRetry(endpoint, payload, options);
+        // 呼叫成功！鎖定當前這組 Key 作為後續預設
+        activeApiKeyIndex = currentKeyIndex;
+        break;
+      } catch (err) {
+        const errMsg = String(err.message || '');
+        const isQuotaExceeded = errMsg.includes('今日免費額度已達上限') ||
+                                errMsg.toLowerCase().includes('quota exceeded') ||
+                                errMsg.includes('limit: 20');
+
+        // 若額度用完且金鑰池中還有其他 Key 未嘗試過，自動切換至下一組重試！
+        if (isQuotaExceeded && keyAttempt < totalKeys - 1) {
+          const nextIndex = (currentKeyIndex + 1) % totalKeys;
+          if (typeof options.onRetry === 'function') {
+            options.onRetry(
+              1, 1, 1,
+              `第 ${currentKeyIndex + 1} 組 Key 今日額度已滿，正在自動無縫切換至第 ${nextIndex + 1} 組 Key 繼續`
+            );
+          }
+          await new Promise(resolve => setTimeout(resolve, 800));
+          continue;
+        }
+
+        if (isQuotaExceeded && totalKeys > 1) {
+          throw new Error(`今日免費額度已全數用完：您設定的 ${totalKeys} 組 API Key 今日額度皆已耗盡（每組 20 次，共計 ${totalKeys * 20} 次）。請等待明日重置或載入已儲存之專案檔 (.json)。`);
+        }
+
+        throw err;
+      }
+    }
 
     // 記錄 Google API 官方回傳之精確 Token 消耗量 (usageMetadata)
     const usageMeta = resultJson?.usageMetadata || {};
@@ -703,6 +810,11 @@
   return {
     BUILTIN_SAMPLE_RECOGNITION,
     getApiKey,
+    getApiKeys,
+    getRawApiKeysText,
+    getActiveApiKeyIndex,
+    rotateApiKey,
+    getApiKeyPoolInfo,
     setApiKey,
     hasApiKey,
     getModelName,

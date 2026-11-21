@@ -746,12 +746,15 @@ C CM7 | C7 | Em | bE | Dm | Em | Fm | Gsus4 | C`
 
   function updateApiKeyStatusUI() {
     if (!window.SheetParser || !els.apiKeyStatusBadge) return;
-    const hasKey = SheetParser.hasApiKey();
+    const pool = SheetParser.getApiKeyPoolInfo ? SheetParser.getApiKeyPoolInfo() : { total: SheetParser.hasApiKey() ? 1 : 0 };
     const model = SheetParser.getModelName();
     if (els.geminiModelSelect) {
       els.geminiModelSelect.value = model;
     }
-    if (hasKey) {
+    if (pool.total > 1) {
+      els.apiKeyStatusBadge.textContent = `🔑 已就緒 ${pool.total} 組 API Key (${model} 智慧輪替)`;
+      els.apiKeyStatusBadge.className = 'sheet-status-badge status-success';
+    } else if (pool.total === 1) {
       els.apiKeyStatusBadge.textContent = `🔑 API Key 已就緒 (${model})`;
       els.apiKeyStatusBadge.className = 'sheet-status-badge status-success';
     } else {
@@ -762,11 +765,12 @@ C CM7 | C7 | Em | bE | Dm | Em | Fm | Gsus4 | C`
   }
 
   /**
-   * 渲染每日預估剩餘免費額度（精簡版：依使用者建議移除複雜的 Token 數值，專注於每日剩餘可用次數）
+   * 渲染每日預估剩餘免費額度（支援多組 API Key 總額度動態加總計算）
    */
   function renderTokenUsageStatsBar(lastSessionTokens = null) {
     if (!window.SheetParser || !els.tokenUsageStatsBar) return;
     const stats = SheetParser.getTokenUsageStats();
+    const pool = SheetParser.getApiKeyPoolInfo ? SheetParser.getApiKeyPoolInfo() : { total: 1 };
 
     let sessionStatusHTML = '';
     if (lastSessionTokens !== null) {
@@ -777,10 +781,14 @@ C CM7 | C7 | Em | bE | Dm | Em | Fm | Gsus4 | C`
       }
     }
 
+    const keyPoolNotice = pool.total > 1
+      ? `<span style="color:#67e8f9; font-weight:700;">(${pool.total} 組 Key 總額度，目前使用第 ${pool.activeIndex + 1} 組)</span>`
+      : `<span style="color:#94a3b8;">(今日已使用 ${stats.todayRequests} 次)</span>`;
+
     els.tokenUsageStatsBar.innerHTML = `
       <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px;">
         ${sessionStatusHTML}
-        <span>🔋 <strong>今日免費額度預估剩餘：</strong><strong style="color:#34d399; font-size:1.02rem;">約 ${stats.remainingRequests.toLocaleString()} / ${stats.freeDailyRequestLimit.toLocaleString()} 次</strong> <span style="color:#94a3b8;">(今日已使用 ${stats.todayRequests} 次)</span></span>
+        <span>🔋 <strong>今日免費額度預估剩餘：</strong><strong style="color:#34d399; font-size:1.02rem;">約 ${stats.remainingRequests.toLocaleString()} / ${stats.freeDailyRequestLimit.toLocaleString()} 次</strong> ${keyPoolNotice}</span>
       </div>
       <a href="https://aistudio.google.com/app/plan_information" target="_blank" rel="noopener" style="color: #93c5fd; text-decoration: none; font-weight: 700;">
         🔗 查看 Google 官方額度後台 ↗
@@ -1278,7 +1286,7 @@ C CM7 | C7 | Em | bE | Dm | Em | Fm | Gsus4 | C`
           const isHidden = els.apiKeyConfigBox.style.display === 'none';
           els.apiKeyConfigBox.style.display = isHidden ? 'block' : 'none';
           if (isHidden && els.geminiApiKeyInput && window.SheetParser) {
-            els.geminiApiKeyInput.value = SheetParser.getApiKey();
+            els.geminiApiKeyInput.value = SheetParser.getRawApiKeysText ? SheetParser.getRawApiKeysText() : SheetParser.getApiKey();
           }
         });
       }

@@ -224,5 +224,15 @@
   1. 將 `js/sheet-parser.js` 內的 `FREE_DAILY_REQUEST_LIMIT` 校正為 20，讓前端「今日免費額度預估剩餘」精準顯示真實可用次數。
   2. 強化 Quota Exceeded 的繁體中文錯誤引導，自動提取重置倒數時間，並引導使用者切換另一組 Google 帳號 API Key 或載入已儲存之專案檔 (.json)。
 
+---
+
+### 20. 多組 API Key 金鑰池與 Quota 耗盡自動輪替容錯實作 (ISSUE-009)
+- **需求提出**：
+  - 使用者詢問：若手邊有多組 Google 帳號申請的 API Key，是否能直接在程式中輸入多組？
+- **實作架構**：
+  1. **輸入介面升級**：將 `index.html` 的金鑰輸入框升級為多行文字框 (`textarea`)，支援使用者一行貼一組 Key（亦支援逗號或分號分隔）。
+  2. **金鑰池管理與額度動態倍增**：於 `js/sheet-parser.js` 實作 `getApiKeys()`、`getApiKeyPoolInfo()` 與 `rotateApiKey()`，系統每日可用額度依 Key 數量動態加總（例如 2 組 = 40 次，3 組 = 60 次）。
+  3. **自動故障轉移（Auto-failover）**：在 `recognizeSheetPage()` 辨識迴圈中，當目前使用的 Key 遭遇 `Quota exceeded` 時，程式自動顯示切換提示並無縫調用下一組可用 Key 繼續辨識，完全無需使用者手動改 Key 重新操作。
+
 
 
