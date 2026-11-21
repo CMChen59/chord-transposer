@@ -184,6 +184,16 @@ select:focus, input[type="text"]:focus, textarea:focus {
   background: rgba(16, 185, 129, 0.3);
 }
 
+.btn-danger {
+  background: rgba(239, 68, 68, 0.15);
+  border-color: #ef4444;
+  color: #fca5a5;
+}
+
+.btn-danger:hover {
+  background: rgba(239, 68, 68, 0.3);
+}
+
 /* 顯示模式切換膠囊按鈕組 */
 .mode-switcher {
   display: inline-flex;

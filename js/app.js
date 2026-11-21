@@ -182,6 +182,7 @@ C CM7 | C7 | Em | bE | Dm | Em | Fm | Gsus4 | C`
     els.btnLoadSampleJpg = document.getElementById('btnLoadSampleJpg');
     els.btnRunAiRecognize = document.getElementById('btnRunAiRecognize');
     els.btnForceAiRecognize = document.getElementById('btnForceAiRecognize');
+    els.btnCancelAiRecognize = document.getElementById('btnCancelAiRecognize');
     els.aiRecognizeSummary = document.getElementById('aiRecognizeSummary');
     els.apiKeyStatusBadge = document.getElementById('apiKeyStatusBadge');
     els.btnToggleApiKeyBox = document.getElementById('btnToggleApiKeyBox');
@@ -993,10 +994,13 @@ C CM7 | C7 | Em | bE | Dm | Em | Fm | Gsus4 | C`
     renderSheetSelectedInspector(false);
   }
 
+  let currentAiAbortController = null;
+
   /**
    * 執行琴譜和弦辨識：
    * - 若 allPages = true (預設點擊「🤖 智慧辨識全曲所有頁面」)，會自動依序辨識整份 PDF 的每一頁（第 1 頁、第 2 頁...），翻頁時直接就緒不用再按一次！
    * - 若 forceRefresh = true (點擊「🔄 重新辨識本頁」)，則針對當前頁強制重新呼叫 Gemini AI。
+   * - 內建即時秒數計時 (已等待 X 秒)、25 秒逾時保護、High Demand 自動退避重試與「🛑 取消辨識」功能
    */
   async function executeCurrentPageRecognition(forceRefresh = false, allPages = !forceRefresh) {
     if (!window.SheetViewer || !window.SheetParser) return;
@@ -1007,9 +1011,25 @@ C CM7 | C7 | Em | bE | Dm | Em | Fm | Gsus4 | C`
     const targetPages = allPages ? viewerState.pages : [currentPageObj];
     const totalCount = targetPages.length;
 
+    currentAiAbortController = new AbortController();
+    let timerInterval = null;
+    const startTime = Date.now();
+    let currentStageText = '';
+
+    const updateStatusWithTimer = () => {
+      const elapsedSec = Math.floor((Date.now() - startTime) / 1000);
+      els.aiRecognizeSummary.textContent = `${currentStageText} (已耗時 ${elapsedSec} 秒...)`;
+      els.aiRecognizeSummary.style.color = '#fde68a';
+    };
+
     try {
       els.btnRunAiRecognize.disabled = true;
       els.btnForceAiRecognize.disabled = true;
+      if (els.btnCancelAiRecognize) {
+        els.btnCancelAiRecognize.style.display = 'inline-flex';
+      }
+
+      timerInterval = setInterval(updateStatusWithTimer, 1000);
 
       let totalChordsFound = 0;
       let usedGeminiCount = 0;
@@ -1017,15 +1037,21 @@ C CM7 | C7 | Em | bE | Dm | Em | Fm | Gsus4 | C`
 
       for (let i = 0; i < totalCount; i++) {
         const pageItem = targetPages[i];
-        els.aiRecognizeSummary.textContent = forceRefresh
-          ? `⏳ 正在強制呼叫 Gemini AI 重新辨識第 ${pageItem.pageNumber} 頁...`
-          : `⏳ 正在辨識全曲進度：第 ${pageItem.pageNumber} / ${viewerState.pages.length} 頁...`;
-        els.aiRecognizeSummary.style.color = '#fde68a';
+        currentStageText = forceRefresh
+          ? `⏳ 正在強制呼叫 Gemini AI 重新辨識第 ${pageItem.pageNumber} 頁`
+          : `⏳ 正在辨識全曲進度：第 ${pageItem.pageNumber} / ${viewerState.pages.length} 頁`;
+        updateStatusWithTimer();
 
         const result = await SheetParser.recognizeSheetPage(pageItem.dataUrl, {
           fileName: viewerState.fileName,
           pageNumber: pageItem.pageNumber,
-          forceRefresh
+          forceRefresh,
+          signal: currentAiAbortController.signal,
+          onRetry: (attempt, maxAttempts, waitSec, reason) => {
+            currentStageText = `⏳ ${reason || '伺服器忙碌'}，正在等待 ${waitSec} 秒後重試 (第 ${attempt}/${maxAttempts} 次)`;
+            els.aiRecognizeSummary.textContent = `${currentStageText}...`;
+            els.aiRecognizeSummary.style.color = '#fde68a';
+          }
         });
 
         pageItem.chords = result.chords || [];
@@ -1035,6 +1061,9 @@ C CM7 | C7 | Em | bE | Dm | Em | Fm | Gsus4 | C`
           sessionTokensUsed += (result.usage?.totalTokens || 0);
         }
       }
+
+      clearInterval(timerInterval);
+      timerInterval = null;
 
       renderTokenUsageStatsBar(sessionTokensUsed);
 
@@ -1051,14 +1080,27 @@ C CM7 | C7 | Em | bE | Dm | Em | Fm | Gsus4 | C`
 
       renderSheetOverlayAndChordsBar();
     } catch (err) {
-      els.aiRecognizeSummary.textContent = `⚠️ ${err.message || '辨識失敗'}`;
-      els.aiRecognizeSummary.style.color = '#fda4af';
-      if (String(err.message).includes('MISSING_API_KEY') && els.apiKeyConfigBox) {
-        els.apiKeyConfigBox.style.display = 'block';
+      if (timerInterval) clearInterval(timerInterval);
+      timerInterval = null;
+
+      if (err.name === 'AbortError' || err.message === 'Aborted by user' || (currentAiAbortController && currentAiAbortController.signal.aborted)) {
+        els.aiRecognizeSummary.textContent = '🛑 已取消 AI 辨識。';
+        els.aiRecognizeSummary.style.color = '#cbd5e1';
+      } else {
+        els.aiRecognizeSummary.textContent = `⚠️ ${err.message || '辨識失敗'}`;
+        els.aiRecognizeSummary.style.color = '#fda4af';
+        if (String(err.message).includes('MISSING_API_KEY') && els.apiKeyConfigBox) {
+          els.apiKeyConfigBox.style.display = 'block';
+        }
       }
     } finally {
+      if (timerInterval) clearInterval(timerInterval);
+      if (els.btnCancelAiRecognize) {
+        els.btnCancelAiRecognize.style.display = 'none';
+      }
       els.btnRunAiRecognize.disabled = false;
       els.btnForceAiRecognize.disabled = false;
+      currentAiAbortController = null;
     }
   }
 
@@ -1223,6 +1265,13 @@ C CM7 | C7 | Em | bE | Dm | Em | Fm | Gsus4 | C`
       }
       if (els.btnForceAiRecognize) {
         els.btnForceAiRecognize.addEventListener('click', () => executeCurrentPageRecognition(true));
+      }
+      if (els.btnCancelAiRecognize) {
+        els.btnCancelAiRecognize.addEventListener('click', () => {
+          if (currentAiAbortController) {
+            currentAiAbortController.abort();
+          }
+        });
       }
       if (els.btnToggleApiKeyBox && els.apiKeyConfigBox) {
         els.btnToggleApiKeyBox.addEventListener('click', () => {

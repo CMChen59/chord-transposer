@@ -462,10 +462,133 @@
   }
 
   /**
+   * 呼叫 Gemini Vision API 並內建 25 秒逾時保護 (Timeout) 與 High Demand 自動退避重試
+   *
+   * @param {string} endpoint - API 網址
+   * @param {object} payload - 請求主體
+   * @param {object} [options] - { signal, onRetry }
+   * @returns {Promise<object>} API 回傳之 JSON 物件
+   */
+  async function callGeminiApiWithRetry(endpoint, payload, options = {}) {
+    const maxRetries = 2; // 最多重試 2 次 (總計最多嘗試 3 次)
+    const timeoutMs = 25000; // 單次請求 25 秒逾時上限 (防卡死)
+    const userSignal = options.signal;
+    const onRetry = options.onRetry;
+
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      if (userSignal && userSignal.aborted) {
+        throw new DOMException('Aborted by user', 'AbortError');
+      }
+
+      const internalController = new AbortController();
+      let isTimedOut = false;
+      const timer = setTimeout(() => {
+        isTimedOut = true;
+        internalController.abort('TIMEOUT');
+      }, timeoutMs);
+
+      const abortHandler = () => {
+        clearTimeout(timer);
+        internalController.abort('ABORTED_BY_USER');
+      };
+      if (userSignal) {
+        userSignal.addEventListener('abort', abortHandler, { once: true });
+      }
+
+      try {
+        const response = await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+          signal: internalController.signal
+        });
+
+        clearTimeout(timer);
+        if (userSignal) {
+          userSignal.removeEventListener('abort', abortHandler);
+        }
+
+        if (!response.ok) {
+          let errDetail = `HTTP ${response.status}`;
+          let isRetryable = (response.status === 503 || response.status === 429 || response.status === 500);
+          try {
+            const errJson = await response.json();
+            if (errJson && errJson.error && errJson.error.message) {
+              errDetail = errJson.error.message;
+              const lower = errDetail.toLowerCase();
+              if (lower.includes('high demand') ||
+                  lower.includes('spikes in demand') ||
+                  lower.includes('temporarily unavailable') ||
+                  lower.includes('overloaded') ||
+                  (lower.includes('exhausted') && !lower.includes('quota'))) {
+                isRetryable = true;
+              }
+            }
+          } catch (e) {
+            // ignore json parse error
+          }
+
+          if (isRetryable && attempt < maxRetries) {
+            const waitSec = 3 * (attempt + 1); // 第 1 次等 3 秒，第 2 次等 6 秒
+            if (typeof onRetry === 'function') {
+              onRetry(attempt + 1, maxRetries, waitSec, '伺服器高負載 (High Demand)');
+            }
+            await new Promise((resolve, reject) => {
+              const waitTimer = setTimeout(resolve, waitSec * 1000);
+              if (userSignal) {
+                userSignal.addEventListener('abort', () => {
+                  clearTimeout(waitTimer);
+                  reject(new DOMException('Aborted by user', 'AbortError'));
+                }, { once: true });
+              }
+            });
+            continue;
+          }
+
+          throw new Error(`Gemini API 呼叫失敗 (${errDetail})`);
+        }
+
+        return await response.json();
+      } catch (err) {
+        clearTimeout(timer);
+        if (userSignal) {
+          userSignal.removeEventListener('abort', abortHandler);
+        }
+
+        if (userSignal && userSignal.aborted) {
+          throw new DOMException('Aborted by user', 'AbortError');
+        }
+
+        if (isTimedOut || (err.name === 'AbortError' && internalController.signal.reason === 'TIMEOUT')) {
+          if (attempt < maxRetries) {
+            const waitSec = 2;
+            if (typeof onRetry === 'function') {
+              onRetry(attempt + 1, maxRetries, waitSec, '連線逾時 25 秒');
+            }
+            await new Promise((resolve, reject) => {
+              const waitTimer = setTimeout(resolve, waitSec * 1000);
+              if (userSignal) {
+                userSignal.addEventListener('abort', () => {
+                  clearTimeout(waitTimer);
+                  reject(new DOMException('Aborted by user', 'AbortError'));
+                }, { once: true });
+              }
+            });
+            continue;
+          }
+          throw new Error('辨識逾時 (超過 25 秒 Google 伺服器未回應)：伺服器目前連線繁忙，已自動中斷。請稍候點擊「🔄 重新辨識」或切換模型。');
+        }
+
+        throw err;
+      }
+    }
+  }
+
+  /**
    * 呼叫 Gemini Vision API 辨識單頁琴譜圖片 (DataURL)
    *
    * @param {string} imageDataUrl - 該頁琴譜之 image/jpeg DataURL
-   * @param {object} [options] - { fileName, pageNumber, forceRefresh, apiKey, model }
+   * @param {object} [options] - { fileName, pageNumber, forceRefresh, apiKey, model, signal, onRetry }
    * @returns {Promise<{ source: 'cache'|'builtin'|'gemini', detectedSourceKey?: string, detectedTargetKey?: string, chords: Array }>}
    */
   async function recognizeSheetPage(imageDataUrl, options = {}) {
@@ -520,26 +643,8 @@
       }
     };
 
-    const response = await fetch(endpoint, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
+    const resultJson = await callGeminiApiWithRetry(endpoint, payload, options);
 
-    if (!response.ok) {
-      let errDetail = `HTTP ${response.status}`;
-      try {
-        const errJson = await response.json();
-        if (errJson && errJson.error && errJson.error.message) {
-          errDetail = errJson.error.message;
-        }
-      } catch (e) {
-        // ignore json parse error
-      }
-      throw new Error(`Gemini API 呼叫失敗 (${errDetail})`);
-    }
-
-    const resultJson = await response.json();
     // 記錄 Google API 官方回傳之精確 Token 消耗量 (usageMetadata)
     const usageMeta = resultJson?.usageMetadata || {};
     const tokenStats = recordTokenUsage(usageMeta);

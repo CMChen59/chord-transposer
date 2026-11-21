@@ -81,5 +81,20 @@
 
 ---
 
+### [ISSUE-007] Gemini 伺服器高負載 (High Demand) 導致前端無逾時卡死懸掛
+- **狀態**：`🟢 Resolved (已修復)`
+- **發現日期**：2026-11-21
+- **問題描述**：
+  - 使用者辨識樂譜時連續遭遇兩次 `This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.`，隨後第 3 次呼叫時連線卡死在「⏳ 正在辨識全曲進度：第 1 / 2 頁...」長達 5 分鐘，按鈕鎖定無法操作。
+  - 原因為 `fetch` 缺乏超時上限與取消機制，當 Google 伺服器因負載臨界掛起連線時，瀏覽器無限期空等。
+- **解決方案**：
+  1. **25 秒強制逾時保護 (Timeout)**：於 `js/sheet-parser.js` 實作 `callGeminiApiWithRetry()`，若超過 25 秒無回應自動斷線解鎖畫面，提示重試。
+  2. **High Demand 自動退避重試**：偵測到 503 / 429 或 High Demand 錯誤時，自動在背景倒數等待 3 秒並重試最多 2 次，不需使用者手動一直點。
+  3. **動態秒數計時與可視化**：辨識中即時更新 `(已耗時 X 秒...)`，清楚得知連線狀態。
+  4. **提供「🛑 取消辨識」紅色按鈕**：辨識中可隨時手動一鍵中斷，秒解鎖按鈕。
+  5. **擴充備用模型選單**：支援選用 `gemini-3.8-pro` 等備用模型分散負載。
+
+---
+
 ## 歷史已解決問題紀錄 (Resolved Issues)
 *(待開發階段實測後陸續歸檔於此)*
