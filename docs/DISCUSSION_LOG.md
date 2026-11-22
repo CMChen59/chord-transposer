@@ -250,5 +250,21 @@
   2. 強化 High Demand 容錯機制：將自動重試上限由 2 次提升至 **4 次**（漸進退避等待 2s、4s、6s、8s），涵蓋 Google 尖峰 20 秒週期，大幅降低手動重按機率。
   3. 連動多金鑰輪替：若某組 Key 遭遇持續 High Demand 或 Quota 額度耗盡，自動嘗試切換至金鑰池中的下一組 Key 繼續辨識。
 
+---
+
+### 22. 琴譜 PDF / JPG 載入異常排查與核心函式庫 100% 本地離線化 (ISSUE-011)
+- **問題回報**：
+  - 使用者反映「現在的問題是我無法載入琴譜」。
+- **根因分析**：
+  1. **`<label>` 事件冒泡問題**：`index.html` 的拖曳上傳區使用 `<label for="sheetFileInput">` 包覆 `<input type="file" id="sheetFileInput">`，在 Chromium 瀏覽器中會造成點擊選檔時觸發兩次點擊事件，導致檔案選擇對話框瞬間閃退關閉。
+  2. **`<input type="file">` 重複選檔未觸發 change**：當使用者選取同名琴譜（如測試時反覆選取同一份 PDF/JPG）時，因 input 的 `value` 未重置，瀏覽器判定值未改變而不觸發 `change` 事件。
+  3. **PDF.js Worker 載入路徑問題**：在 `file://` 本地直接開啟網頁時，若外部 CDN 或 Worker 未能被瀏覽器正確識別，PDF.js 會 fallback 至相對路徑 `./pdf.worker.js`，而專案根目錄先前缺少該檔案。
+  4. **外部 CDN 網路依賴風險**：原先依賴 Cloudflare CDN 載入 `pdf.min.js`、`pdf.worker.min.js` 與 `jspdf.umd.min.js`，若處於離線、學校/公司內網或 CDN 暫時被封鎖，將導致琴譜解析與匯出功能失靈。
+- **解決與改善成果**：
+  1. **UI 容器標準化**：將拖曳上傳容器改為標準 `<div>`，明確分離按鈕與隱藏式選檔 input，並於每次點擊時主動重置 `value = ''`，點擊按鈕或整塊拖曳區皆能 100% 穩定開啟選檔視窗。
+  2. **100% 本地離線化**：將官方最新穩定版 `pdf.min.js`、`pdf.worker.min.js` 與 `jspdf.umd.min.js` 下載至本地 `js/` 目錄並於專案根目錄備份 `pdf.worker.js`，全面改為本地載入，達成完全零外部網路依賴、0 跨域安全性錯誤、秒開預覽。
+  3. **升級 Drag & Drop 容錯**：監聽對象擴大至拖曳上傳盒、空白預留區與舞台容器，並加入全域 `dragover`/`drop` `preventDefault` 防止使用者在視窗空白處放開滑鼠時瀏覽器跳離應用的問題。
+  4. **增強錯誤攔截與狀態即時回饋**：於 `FileReader` 加入 `onerror` 處理，於 `renderCurrentPageToStage` 加入 `try/catch` 保護，確保任何異常皆能即時在狀態列顯示明確中文說明。
+
 
 

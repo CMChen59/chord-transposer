@@ -177,6 +177,7 @@ C CM7 | C7 | Em | bE | Dm | Em | Fm | Gsus4 | C`
     // 模式二 (T2-1 & T2-2)：琴譜 PDF / JPG 載入、高清預覽與 Gemini AI 抓譜區
     els.sheetViewerStatus = document.getElementById('sheetViewerStatus');
     els.sheetDropZone = document.getElementById('sheetDropZone');
+    els.btnBrowseSheetFile = document.getElementById('btnBrowseSheetFile');
     els.sheetFileInput = document.getElementById('sheetFileInput');
     els.btnLoadSamplePdf = document.getElementById('btnLoadSamplePdf');
     els.btnLoadSampleJpg = document.getElementById('btnLoadSampleJpg');
@@ -1217,6 +1218,7 @@ C CM7 | C7 | Em | bE | Dm | Em | Fm | Gsus4 | C`
       SheetViewer.init({
         statusText: els.sheetViewerStatus,
         dropZone: els.sheetDropZone,
+        btnBrowse: els.btnBrowseSheetFile,
         fileInput: els.sheetFileInput,
         btnPrevPage: els.btnSheetPrevPage,
         pageIndicator: els.sheetPageIndicator,

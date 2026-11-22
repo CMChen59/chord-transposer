@@ -133,5 +133,21 @@
 
 ---
 
+### [ISSUE-011] 琴譜 PDF / JPG 載入無反應或失敗排查，以及 PDF.js / jsPDF 函式庫 100% 本地離線化
+- **狀態**：`🟢 Resolved (已修復事件冒泡、本地化核心依賴並升級拖曳全域容錯)`
+- **發現日期**：2026-11-22
+- **問題描述**：
+  1. 使用者回報「無法載入琴譜」。排查發現原因有三：
+     - `<label for="sheetFileInput">` 內層又包覆 `<input id="sheetFileInput">`，在 Chromium (Chrome/Edge) 瀏覽器中造成重複點擊與對話框立即取消 bug。
+     - 若同名琴譜再次選取，因 `<input type="file">` 的 `value` 未即時清空，導致 `change` 事件無法再次觸發。
+     - 原先 `initPdfJsWorker()` 於 `window.pdfjsWorker` 存在時提早 `return` 未設定 `GlobalWorkerOptions.workerSrc`，在某些環境下使 PDF.js 內部 fallback 至相對路徑 `./pdf.worker.js`，導致本機檔案找不到報錯。
+  2. 過去仰賴 Cloudflare CDN 載入 PDF.js 與 jsPDF，若在無網路、離線或 CDN 偶發性被阻擋之環境下，會導致 PDF 解析與匯出功能完全失靈。
+- **解決方案**：
+  1. 將 `index.html` 之拖曳上傳容器重構為標準 `<div>`，明確分離按鈕與隱藏式選檔 input，並於每次點擊時主動重置 `value = ''`，點擊上傳區或按鈕皆能 100% 穩定喚起選檔對話框。
+  2. 下載官方 `pdf.min.js`、`pdf.worker.min.js`、`jspdf.umd.min.js` 至本地 `js/` 目錄並於專案根目錄備份 `pdf.worker.js`，全面改為本機載入，達成 100% 零外部網路依賴、秒開無 CORS 阻擋。
+  3. 擴大 Drag & Drop 監聽範圍至拖曳上傳盒、空白預留區與舞台容器，並加入全域 `dragover`/`drop` `preventDefault` 防止瀏覽器拖入檔案時跳離頁面的常見困擾。
+
+---
+
 ## 歷史已解決問題紀錄 (Resolved Issues)
 *(待開發階段實測後陸續歸檔於此)*

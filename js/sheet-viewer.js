@@ -18,6 +18,7 @@
   'use strict';
 
   const PDFJS_CDN_WORKER = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  const LOCAL_PDFJS_WORKER = 'js/pdf.worker.min.js';
 
   // 內部狀態
   const viewerState = {
@@ -34,18 +35,14 @@
 
   /**
    * 初始化 PDF.js Worker
-   * 注意：在 file:// 本地直接開啟 index.html 時，瀏覽器會阻擋 Web Worker 並自動切換為 Main Thread (Fake Worker) 模式；
-   * 只要在 index.html 中直接以 <script> 載入 pdf.worker.min.js，全域即存在 window.pdfjsWorker.WorkerMessageHandler，
-   * 此時不可將 workerSrc 設為含 importScripts 的 Blob URL（因為主執行緒沒有 importScripts），即可 100% 正常運作！
+   * 注意：在 file:// 本地直接開啟 index.html 時，若全域以 <script> 載入 pdf.worker.min.js，
+   * 全域即存在 window.pdfjsWorker.WorkerMessageHandler，PDF.js 會自動使用 Main Thread (Fake Worker) 模式；
+   * 同時設定 workerSrc 指向本地 js/pdf.worker.min.js，避免 PDF.js 內部報 No workerSrc 錯誤。
    */
   function initPdfJsWorker() {
     if (typeof window === 'undefined' || !window.pdfjsLib) return;
-    if (window.pdfjsWorker && window.pdfjsWorker.WorkerMessageHandler) {
-      // 全域已載入 pdfjsWorker，PDF.js 會直接使用它，無須設定外部 workerSrc
-      return;
-    }
     if (!window.pdfjsLib.GlobalWorkerOptions.workerSrc) {
-      window.pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS_CDN_WORKER;
+      window.pdfjsLib.GlobalWorkerOptions.workerSrc = LOCAL_PDFJS_WORKER;
     }
   }
 
@@ -202,11 +199,19 @@
         const uint8 = new Uint8Array(e.target.result);
         loadPdfDocument(uint8, name);
       };
+      reader.onerror = (err) => {
+        console.error('檔案讀取失敗:', err);
+        setStatus(`❌ 讀取檔案失敗：「${name}」無法存取`, 'error');
+      };
       reader.readAsArrayBuffer(file);
     } else if (file.type.startsWith('image/') || /\.(jpg|jpeg|png|webp|bmp)$/.test(lower)) {
       const reader = new FileReader();
       reader.onload = (e) => {
         loadImageDataUrl(e.target.result, name);
+      };
+      reader.onerror = (err) => {
+        console.error('圖片讀取失敗:', err);
+        setStatus(`❌ 讀取圖片失敗：「${name}」無法存取`, 'error');
       };
       reader.readAsDataURL(file);
     } else {
@@ -262,7 +267,11 @@
       }
 
       if (typeof viewerState.onPageChangeCallback === 'function') {
-        viewerState.onPageChangeCallback(pageObj, viewerState.currentPageIndex, viewerState.pages.length);
+        try {
+          viewerState.onPageChangeCallback(pageObj, viewerState.currentPageIndex, viewerState.pages.length);
+        } catch (cbErr) {
+          console.error('onPageChangeCallback 執行錯誤:', cbErr);
+        }
       }
     };
     img.src = pageObj.dataUrl;
@@ -344,38 +353,70 @@
       viewerState.onPageChangeCallback = options.onPageChange;
     }
 
+    // 瀏覽檔案按鈕
+    if (dom.btnBrowse) {
+      dom.btnBrowse.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (dom.fileInput) {
+          dom.fileInput.value = '';
+          dom.fileInput.click();
+        }
+      });
+    }
+
     // 檔案選取器
     if (dom.fileInput) {
+      dom.fileInput.addEventListener('click', (e) => {
+        // 重置 value，確保選取相同檔案時亦能觸發 change 事件
+        e.target.value = '';
+      });
       dom.fileInput.addEventListener('change', (e) => {
         const file = e.target.files && e.target.files[0];
         if (file) handleUserFile(file);
       });
     }
 
-    // 拖曳上傳區 (Drag & Drop)
+    // 點擊拖曳上傳區任一處即可觸發檔案選取 (若非點擊瀏覽按鈕)
     if (dom.dropZone) {
+      dom.dropZone.addEventListener('click', (e) => {
+        if (dom.fileInput && (!dom.btnBrowse || !dom.btnBrowse.contains(e.target))) {
+          dom.fileInput.value = '';
+          dom.fileInput.click();
+        }
+      });
+    }
+
+    // 拖曳上傳區 (Drag & Drop) - 同時監聽上傳盒、空白預留區與舞台容器
+    const dropTargets = [dom.dropZone, dom.emptyPlaceholder, dom.canvasStageWrapper].filter(t => t && typeof t.addEventListener === 'function');
+    dropTargets.forEach(target => {
       ['dragenter', 'dragover'].forEach(evtName => {
-        dom.dropZone.addEventListener(evtName, (e) => {
+        target.addEventListener(evtName, (e) => {
           e.preventDefault();
           e.stopPropagation();
-          dom.dropZone.classList.add('drag-over');
+          if (dom.dropZone) dom.dropZone.classList.add('drag-over');
         });
       });
 
       ['dragleave', 'drop'].forEach(evtName => {
-        dom.dropZone.addEventListener(evtName, (e) => {
+        target.addEventListener(evtName, (e) => {
           e.preventDefault();
           e.stopPropagation();
-          dom.dropZone.classList.remove('drag-over');
+          if (dom.dropZone) dom.dropZone.classList.remove('drag-over');
         });
       });
 
-      dom.dropZone.addEventListener('drop', (e) => {
+      target.addEventListener('drop', (e) => {
         const files = e.dataTransfer && e.dataTransfer.files;
         if (files && files.length > 0) {
           handleUserFile(files[0]);
         }
       });
+    });
+
+    // 避免拖曳檔案到瀏覽器視窗空白處時直接跳離頁面開啟檔案
+    if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
+      window.addEventListener('dragover', (e) => e.preventDefault());
+      window.addEventListener('drop', (e) => e.preventDefault());
     }
 
     // 翻頁與縮放按鈕

@@ -157,7 +157,7 @@
 
         <!-- 檔案拖曳上傳區 & 內建範例一鍵載入區 -->
         <div class="sheet-upload-grid">
-          <label id="sheetDropZone" class="sheet-drop-zone" for="sheetFileInput">
+          <div id="sheetDropZone" class="sheet-drop-zone" style="cursor: pointer;">
             <div class="drop-zone-info">
               <span class="drop-zone-icon">📤</span>
               <div>
@@ -169,9 +169,9 @@
                 </div>
               </div>
             </div>
-            <span class="btn btn-primary">📁 瀏覽選擇本機琴譜...</span>
+            <button type="button" id="btnBrowseSheetFile" class="btn btn-primary">📁 瀏覽選擇本機琴譜...</button>
             <input type="file" id="sheetFileInput" accept=".pdf,image/jpeg,image/png,image/webp,image/bmp" style="display: none;" />
-          </label>
+          </div>
 
           <div class="sample-loader-box">
             <div style="font-size: 0.8rem; font-weight: 700; color: #94a3b8;">⚡ 免選檔！直接載入備份之範例琴譜：</div>
@@ -462,11 +462,11 @@
 
   </main>
 
-  <!-- PDF.js 與 Worker 函式庫 (同時載入 pdf.worker.min.js 以確保 file:// 本地直接開啟時 100% 免跨域錯誤) -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js"></script>
-  <!-- jsPDF 函式庫 (供 T3-1 將轉調後的多頁高清琴譜匯出為新 PDF 檔案) -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <!-- PDF.js 與 Worker 函式庫 (本地優先，確保 file:// 本地開啟時 100% 離線可用且無跨域錯誤) -->
+  <script src="js/pdf.min.js"></script>
+  <script src="js/pdf.worker.min.js"></script>
+  <!-- jsPDF 函式庫 (本地優先，供 T3-1 將轉調後的多頁高清琴譜匯出為新 PDF 檔案) -->
+  <script src="js/jspdf.umd.min.js"></script>
   <!-- 內建範例琴譜離線資料與核心模組 -->
   <script src="js/sample-sheets-data.js"></script>
   <script src="js/music-theory.js"></script>
