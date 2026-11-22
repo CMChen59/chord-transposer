@@ -24,11 +24,21 @@
   const STORAGE_KEY_MODEL = 'chord_transposer_gemini_model';
   const STORAGE_KEY_CACHE = 'chord_transposer_vision_cache_v1';
   const STORAGE_KEY_TOKEN_STATS = 'chord_transposer_token_stats_v1';
-  const DEFAULT_GEMINI_MODEL = 'gemini-3.8-flash';
+  const DEFAULT_GEMINI_MODEL = 'gemini-2.0-flash';
 
-  // Google AI Studio 免費方案 (Free Tier) 每日額度上限
-  // 注意：Google 針對最新旗艦模型 gemini-3.8-flash 的 Free Tier 限制為每日 20 次 (RPD = 20)
-  const FREE_DAILY_REQUEST_LIMIT = 20;
+  /**
+   * 根據不同模型名稱取得 Google 官方 Free Tier 每日建議請求額度 (RPD)
+   * - gemini-2.0-flash / gemini-1.5-flash: 1,500 次/天 (高可用、超低塞車率)
+   * - gemini-1.5-pro: 50 次/天
+   * - gemini-3.8-flash: 20 次/天 (預覽測試版，易遇 High Demand)
+   */
+  function getDailyLimitForModel(modelName) {
+    const m = (modelName || '').toLowerCase();
+    if (m.includes('3.8')) return 20;
+    if (m.includes('pro')) return 50;
+    return 1500;
+  }
+
   const FREE_DAILY_TOKEN_LIMIT = 1000000;
 
   // ============================================================================
@@ -249,9 +259,9 @@
 
   function getModelName() {
     if (typeof localStorage === 'undefined') return DEFAULT_GEMINI_MODEL;
-    const saved = localStorage.getItem(STORAGE_KEY_MODEL);
-    // 自動將舊版停用模型升級為最新的 gemini-3.8-flash
-    if (!saved || saved === 'gemini-2.5-flash' || saved === 'gemini-2.0-flash' || saved === 'gemini-1.5-flash') {
+    const saved = (localStorage.getItem(STORAGE_KEY_MODEL) || '').trim();
+    // 自動修正無效、停用或不存在之模型代號 (如 gemini-3.8-pro, gemini-2.5-flash)
+    if (!saved || saved === 'gemini-3.8-pro' || saved === 'gemini-2.5-flash') {
       localStorage.setItem(STORAGE_KEY_MODEL, DEFAULT_GEMINI_MODEL);
       return DEFAULT_GEMINI_MODEL;
     }
@@ -317,7 +327,9 @@
   function enrichStatsWithQuota(stats) {
     const keys = getApiKeys();
     const keyCount = Math.max(1, keys.length);
-    const totalDailyRequestLimit = FREE_DAILY_REQUEST_LIMIT * keyCount;
+    const model = getModelName();
+    const baseLimit = getDailyLimitForModel(model);
+    const totalDailyRequestLimit = baseLimit * keyCount;
     const remainingRequests = Math.max(0, totalDailyRequestLimit - stats.todayRequests);
     const remainingTokens = Math.max(0, FREE_DAILY_TOKEN_LIMIT - stats.todayTokens);
     const remainingPercent = Math.max(
@@ -326,6 +338,7 @@
     );
     return {
       ...stats,
+      model,
       keyCount,
       freeDailyRequestLimit: totalDailyRequestLimit,
       freeDailyTokenLimit: FREE_DAILY_TOKEN_LIMIT,
@@ -734,9 +747,32 @@
         break;
       } catch (err) {
         const errMsg = String(err.message || '');
+        const isNotFound = errMsg.includes('is not found for API version') || errMsg.includes('not supported for generateContent');
+        const isHighDemand = errMsg.includes('high demand') || errMsg.includes('spikes in demand');
         const isQuotaExceeded = errMsg.includes('今日免費額度已達上限') ||
                                 errMsg.toLowerCase().includes('quota exceeded') ||
                                 errMsg.includes('limit: 20');
+
+        // 若模型不存在 (如誤設 gemini-3.8-pro) 或遇到 High Demand 塞車，自動切換至官方現役推薦之 gemini-2.0-flash 重試
+        if ((isNotFound || isHighDemand) && model !== 'gemini-2.0-flash') {
+          if (typeof options.onRetry === 'function') {
+            options.onRetry(
+              1, 1, 1,
+              isNotFound
+                ? `模型 ${model} 在 Google API 不存在，正自動切換至現役推薦之 gemini-2.0-flash`
+                : `模型 ${model} 目前伺服器塞車，正自動切換至現役推薦之 gemini-2.0-flash`
+            );
+          }
+          setModelName('gemini-2.0-flash');
+          const fallbackEndpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${encodeURIComponent(currentApiKey)}`;
+          try {
+            resultJson = await callGeminiApiWithRetry(fallbackEndpoint, payload, options);
+            activeApiKeyIndex = currentKeyIndex;
+            break;
+          } catch (fbErr) {
+            // 降級失敗則接續原有錯誤處理
+          }
+        }
 
         // 若額度用完且金鑰池中還有其他 Key 未嘗試過，自動切換至下一組重試！
         if (isQuotaExceeded && keyAttempt < totalKeys - 1) {
@@ -752,7 +788,7 @@
         }
 
         if (isQuotaExceeded && totalKeys > 1) {
-          throw new Error(`今日免費額度已全數用完：您設定的 ${totalKeys} 組 API Key 今日額度皆已耗盡（每組 20 次，共計 ${totalKeys * 20} 次）。請等待明日重置或載入已儲存之專案檔 (.json)。`);
+          throw new Error(`今日免費額度已全數用完：您設定的 ${totalKeys} 組 API Key 今日額度皆已耗盡。請等待明日重置或載入已儲存之專案檔 (.json)。`);
         }
 
         throw err;

@@ -120,5 +120,18 @@
 
 ---
 
+### [ISSUE-010] `gemini-3.8-pro` 模型代號不存在與全面採用 `gemini-2.0-flash` (1,500次/日)
+- **狀態**：`🟢 Resolved (已修復模型選單並實作自動降級備用)`
+- **發現日期**：2026-11-22
+- **問題描述**：
+  - 使用者選取 `gemini-3.8-pro` 時，Google API 報錯：`models/gemini-3.8-pro is not found for API version v1beta, or is not supported for generateContent`。
+  - Google 官方 v1beta API 並無 `gemini-3.8-pro`，官方正式 Pro 模型為 `gemini-1.5-pro`；而 Google 現役運算能力最強、每日免費 1,500 次且不易塞車的正式旗艦模型為 `gemini-2.0-flash`。
+- **解決方案**：
+  1. 更新模型選單：預設首選更新為 **`gemini-2.0-flash`**（速度極快、免費 1,500 次/日、不塞車），Pro 模型校正為 **`gemini-1.5-pro`**。
+  2. 於 `js/sheet-parser.js` 實作自動模型降級容錯（Model Fallback）：若偵測到模型不存在或遇到 High Demand 塞車，系統自動無縫降級至 `gemini-2.0-flash` 備用重試。
+  3. 支援不同模型動態計算每日額度（Flash 1,500 次、Pro 50 次、3.8 測試版 20 次）。
+
+---
+
 ## 歷史已解決問題紀錄 (Resolved Issues)
 *(待開發階段實測後陸續歸檔於此)*

@@ -234,5 +234,20 @@
   2. **金鑰池管理與額度動態倍增**：於 `js/sheet-parser.js` 實作 `getApiKeys()`、`getApiKeyPoolInfo()` 與 `rotateApiKey()`，系統每日可用額度依 Key 數量動態加總（例如 2 組 = 40 次，3 組 = 60 次）。
   3. **自動故障轉移（Auto-failover）**：在 `recognizeSheetPage()` 辨識迴圈中，當目前使用的 Key 遭遇 `Quota exceeded` 時，程式自動顯示切換提示並無縫調用下一組可用 Key 繼續辨識，完全無需使用者手動改 Key 重新操作。
 
+---
+
+## 📅 2026-11-22：模型選單校正為現役主流與全面升級 `gemini-2.0-flash` (ISSUE-010)
+
+### 21. 模型代號不存在分析與全面升級 `gemini-2.0-flash`
+- **問題現況**：
+  - 使用者選取 `gemini-3.8-pro` 時，Google API 回傳 `models/gemini-3.8-pro is not found for API version v1beta, or is not supported for generateContent`。
+- **原因分析**：
+  - Google 官方 v1beta API 並不存在 `gemini-3.8-pro`（官方現役 Pro 模型代號為 `gemini-1.5-pro`）。
+  - 同時，`gemini-3.8-flash` 屬於實驗預覽模型，每日額度僅 20 次且頻繁出現 High Demand 尖峰伺服器塞車；而 Google 現役成熟且算力充沛的正式主力模型為 **`gemini-2.0-flash`**，具備每日 **1,500 次** 免費額度，且運算集群極少遭遇塞車。
+- **調整措施**：
+  1. 將系統預設推薦模型升級為 **`gemini-2.0-flash`**（每日 1,500 次免費，速度極快且不塞車）。
+  2. 修正 Pro 模型為官方正式之 **`gemini-1.5-pro`**。
+  3. 實作自動模型降級容錯（Model Fallback）：若偵測到模型代號不存在或塞車，系統自動無縫降級至 `gemini-2.0-flash` 備用重試。
+
 
 
