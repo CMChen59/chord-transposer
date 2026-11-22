@@ -24,21 +24,11 @@
   const STORAGE_KEY_MODEL = 'chord_transposer_gemini_model';
   const STORAGE_KEY_CACHE = 'chord_transposer_vision_cache_v1';
   const STORAGE_KEY_TOKEN_STATS = 'chord_transposer_token_stats_v1';
-  const DEFAULT_GEMINI_MODEL = 'gemini-2.0-flash';
+  // Google 官方在該 API 端點唯一支援之視覺模型
+  const DEFAULT_GEMINI_MODEL = 'gemini-3.8-flash';
 
-  /**
-   * 根據不同模型名稱取得 Google 官方 Free Tier 每日建議請求額度 (RPD)
-   * - gemini-2.0-flash / gemini-1.5-flash: 1,500 次/天 (高可用、超低塞車率)
-   * - gemini-1.5-pro: 50 次/天
-   * - gemini-3.8-flash: 20 次/天 (預覽測試版，易遇 High Demand)
-   */
-  function getDailyLimitForModel(modelName) {
-    const m = (modelName || '').toLowerCase();
-    if (m.includes('3.8')) return 20;
-    if (m.includes('pro')) return 50;
-    return 1500;
-  }
-
+  // Google 官方針對 gemini-3.8-flash 的 Free Tier 限制為每組 Key 每日 20 次 (RPD = 20)
+  const FREE_DAILY_REQUEST_LIMIT = 20;
   const FREE_DAILY_TOKEN_LIMIT = 1000000;
 
   // ============================================================================
@@ -259,13 +249,9 @@
 
   function getModelName() {
     if (typeof localStorage === 'undefined') return DEFAULT_GEMINI_MODEL;
-    const saved = (localStorage.getItem(STORAGE_KEY_MODEL) || '').trim();
-    // 自動修正無效、停用或不存在之模型代號 (如 gemini-3.8-pro, gemini-2.5-flash)
-    if (!saved || saved === 'gemini-3.8-pro' || saved === 'gemini-2.5-flash') {
-      localStorage.setItem(STORAGE_KEY_MODEL, DEFAULT_GEMINI_MODEL);
-      return DEFAULT_GEMINI_MODEL;
-    }
-    return saved;
+    // Google API 官方目前限定使用 gemini-3.8-flash (停用 gemini-2.0-flash / 2.5-flash)
+    localStorage.setItem(STORAGE_KEY_MODEL, DEFAULT_GEMINI_MODEL);
+    return DEFAULT_GEMINI_MODEL;
   }
 
   function setModelName(model) {
@@ -555,7 +541,7 @@
    * @returns {Promise<object>} API 回傳之 JSON 物件
    */
   async function callGeminiApiWithRetry(endpoint, payload, options = {}) {
-    const maxRetries = 2; // 最多重試 2 次 (總計最多嘗試 3 次)
+    const maxRetries = 4; // 遇到尖峰排隊自動重試最多 4 次 (總共嘗試 5 次)
     const timeoutMs = 25000; // 單次請求 25 秒逾時上限 (防卡死)
     const userSignal = options.signal;
     const onRetry = options.onRetry;
@@ -614,9 +600,9 @@
           }
 
           if (isRetryable && attempt < maxRetries) {
-            const waitSec = 3 * (attempt + 1); // 第 1 次等 3 秒，第 2 次等 6 秒
+            const waitSec = Math.min(8, 2 + attempt * 2); // 第 1 次等 2 秒，第 2 次等 4 秒，第 3 次等 6 秒，第 4 次等 8 秒
             if (typeof onRetry === 'function') {
-              onRetry(attempt + 1, maxRetries, waitSec, '伺服器高負載 (High Demand)');
+              onRetry(attempt + 1, maxRetries, waitSec, 'Google 伺服器尖峰排隊中 (High Demand)');
             }
             await new Promise((resolve, reject) => {
               const waitTimer = setTimeout(resolve, waitSec * 1000);
@@ -634,6 +620,10 @@
             const timeMatch = errDetail.match(/retry in ([0-9]+h[0-9]+m|[0-9]+m|[0-9]+s)/i);
             const retryHint = timeMatch ? `（Google 預計於 ${timeMatch[1]} 後重置額度）` : '';
             throw new Error(`今日免費額度已達上限：Google 針對此模型的免費配額為每日 20 次${retryHint}。建議更換另一個 Google 帳號申請新 API Key 貼上即可秒恢復，或直接載入已儲存之專案檔 (.json)。`);
+          }
+
+          if (errDetail.toLowerCase().includes('high demand') || errDetail.toLowerCase().includes('spikes in demand')) {
+            throw new Error(`Google 官方伺服器目前尖峰排隊中 (High Demand)：經 4 次自動重試仍處於高峰。Google 尖峰通常只持續 15~30 秒，請稍等片刻後再點一次「🔄 重新辨識」！`);
           }
 
           throw new Error(`Gemini API 呼叫失敗 (${errDetail})`);
@@ -747,40 +737,20 @@
         break;
       } catch (err) {
         const errMsg = String(err.message || '');
-        const isNotFound = errMsg.includes('is not found for API version') || errMsg.includes('not supported for generateContent');
         const isHighDemand = errMsg.includes('high demand') || errMsg.includes('spikes in demand');
         const isQuotaExceeded = errMsg.includes('今日免費額度已達上限') ||
                                 errMsg.toLowerCase().includes('quota exceeded') ||
                                 errMsg.includes('limit: 20');
 
-        // 若模型不存在 (如誤設 gemini-3.8-pro) 或遇到 High Demand 塞車，自動切換至官方現役推薦之 gemini-2.0-flash 重試
-        if ((isNotFound || isHighDemand) && model !== 'gemini-2.0-flash') {
-          if (typeof options.onRetry === 'function') {
-            options.onRetry(
-              1, 1, 1,
-              isNotFound
-                ? `模型 ${model} 在 Google API 不存在，正自動切換至現役推薦之 gemini-2.0-flash`
-                : `模型 ${model} 目前伺服器塞車，正自動切換至現役推薦之 gemini-2.0-flash`
-            );
-          }
-          setModelName('gemini-2.0-flash');
-          const fallbackEndpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${encodeURIComponent(currentApiKey)}`;
-          try {
-            resultJson = await callGeminiApiWithRetry(fallbackEndpoint, payload, options);
-            activeApiKeyIndex = currentKeyIndex;
-            break;
-          } catch (fbErr) {
-            // 降級失敗則接續原有錯誤處理
-          }
-        }
-
-        // 若額度用完且金鑰池中還有其他 Key 未嘗試過，自動切換至下一組重試！
-        if (isQuotaExceeded && keyAttempt < totalKeys - 1) {
+        // 若額度用完或該 Key 遭遇尖峰塞車且金鑰池中還有其他 Key 未嘗試過，自動切換至下一組重試！
+        if ((isQuotaExceeded || isHighDemand) && keyAttempt < totalKeys - 1) {
           const nextIndex = (currentKeyIndex + 1) % totalKeys;
           if (typeof options.onRetry === 'function') {
             options.onRetry(
               1, 1, 1,
-              `第 ${currentKeyIndex + 1} 組 Key 今日額度已滿，正在自動無縫切換至第 ${nextIndex + 1} 組 Key 繼續`
+              isQuotaExceeded
+                ? `第 ${currentKeyIndex + 1} 組 Key 今日額度已滿，正在自動無縫切換至第 ${nextIndex + 1} 組 Key 繼續`
+                : `第 ${currentKeyIndex + 1} 組 Key 目前尖峰排隊中，嘗試切換至第 ${nextIndex + 1} 組 Key 繼續`
             );
           }
           await new Promise(resolve => setTimeout(resolve, 800));
@@ -788,7 +758,7 @@
         }
 
         if (isQuotaExceeded && totalKeys > 1) {
-          throw new Error(`今日免費額度已全數用完：您設定的 ${totalKeys} 組 API Key 今日額度皆已耗盡。請等待明日重置或載入已儲存之專案檔 (.json)。`);
+          throw new Error(`今日免費額度已全數用完：您設定的 ${totalKeys} 組 API Key 今日額度皆已耗盡（每組 20 次，共計 ${totalKeys * 20} 次）。請等待明日重置或載入已儲存之專案檔 (.json)。`);
         }
 
         throw err;

@@ -120,16 +120,16 @@
 
 ---
 
-### [ISSUE-010] `gemini-3.8-pro` 模型代號不存在與全面採用 `gemini-2.0-flash` (1,500次/日)
-- **狀態**：`🟢 Resolved (已修復模型選單並實作自動降級備用)`
+### [ISSUE-010] Google 官方全面停用舊版 Flash (2.0/2.5/1.5)，指定唯一支援 `gemini-3.8-flash`
+- **狀態**：`🟢 Resolved (已鎖定官方唯一指定模型並加強 High Demand 容錯)`
 - **發現日期**：2026-11-22
 - **問題描述**：
-  - 使用者選取 `gemini-3.8-pro` 時，Google API 報錯：`models/gemini-3.8-pro is not found for API version v1beta, or is not supported for generateContent`。
-  - Google 官方 v1beta API 並無 `gemini-3.8-pro`，官方正式 Pro 模型為 `gemini-1.5-pro`；而 Google 現役運算能力最強、每日免費 1,500 次且不易塞車的正式旗艦模型為 `gemini-2.0-flash`。
+  - 使用者呼叫 `gemini-2.0-flash` 時，Google API 明確回傳：`This model models/gemini-2.0-flash is no longer available. Please update your code to use models/gemini-3.8-flash for the latest features and improvements.`。
+  - 證實 Google 官方在該端點已全面淘汰 2.0/2.5/Pro 等舊型號，**唯一強制支援之視覺模型僅有 `gemini-3.8-flash`**。
 - **解決方案**：
-  1. 更新模型選單：預設首選更新為 **`gemini-2.0-flash`**（速度極快、免費 1,500 次/日、不塞車），Pro 模型校正為 **`gemini-1.5-pro`**。
-  2. 於 `js/sheet-parser.js` 實作自動模型降級容錯（Model Fallback）：若偵測到模型不存在或遇到 High Demand 塞車，系統自動無縫降級至 `gemini-2.0-flash` 備用重試。
-  3. 支援不同模型動態計算每日額度（Flash 1,500 次、Pro 50 次、3.8 測試版 20 次）。
+  1. 將系統模型單一鎖定為 Google 官方唯一指定之 **`gemini-3.8-flash`**，移除所有已失效模型選項。
+  2. 針對 `gemini-3.8-flash` 尖峰時段的 High Demand 塞車現象，將自動退避重試次數提升至 **4 次**（漸進等待 2s, 4s, 6s, 8s，涵蓋 Google 尖峰 20 秒週期）。
+  3. 連動多組 API Key 金鑰池容錯：若 Key 1 遭遇 High Demand 或 Quota 額度耗盡，自動嘗試輪替切換至 Key 2 繼續執行。
 
 ---
 

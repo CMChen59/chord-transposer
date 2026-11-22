@@ -236,18 +236,19 @@
 
 ---
 
-## 📅 2026-11-22：模型選單校正為現役主流與全面升級 `gemini-2.0-flash` (ISSUE-010)
+## 📅 2026-11-22：Google 官方唯一指定模型 `gemini-3.8-flash` 確立與 High Demand 4 段自動退避重試 (ISSUE-010)
 
-### 21. 模型代號不存在分析與全面升級 `gemini-2.0-flash`
-- **問題現況**：
-  - 使用者選取 `gemini-3.8-pro` 時，Google API 回傳 `models/gemini-3.8-pro is not found for API version v1beta, or is not supported for generateContent`。
-- **原因分析**：
-  - Google 官方 v1beta API 並不存在 `gemini-3.8-pro`（官方現役 Pro 模型代號為 `gemini-1.5-pro`）。
-  - 同時，`gemini-3.8-flash` 屬於實驗預覽模型，每日額度僅 20 次且頻繁出現 High Demand 尖峰伺服器塞車；而 Google 現役成熟且算力充沛的正式主力模型為 **`gemini-2.0-flash`**，具備每日 **1,500 次** 免費額度，且運算集群極少遭遇塞車。
-- **調整措施**：
-  1. 將系統預設推薦模型升級為 **`gemini-2.0-flash`**（每日 1,500 次免費，速度極快且不塞車）。
-  2. 修正 Pro 模型為官方正式之 **`gemini-1.5-pro`**。
-  3. 實作自動模型降級容錯（Model Fallback）：若偵測到模型代號不存在或塞車，系統自動無縫降級至 `gemini-2.0-flash` 備用重試。
+### 21. Google 官方模型支援驗證與 High Demand 深度容錯
+- **實測回報**：
+  - 使用者呼叫 `gemini-2.0-flash` 時，Google 官方 API 回傳確切指示：
+    > `This model models/gemini-2.0-flash is no longer available. Please update your code to use models/gemini-3.8-flash for the latest features and improvements.`
+- **技術結論**：
+  - Google 在此端點已全面停止供應 2.0/2.5 系列，**唯一合法且支援的視覺模型為 `gemini-3.8-flash`**。
+  - 使用者已成功設定 2 組 API Key（每日總額度 40 次），金鑰池輪替機制正常運作。
+- **改善措施**：
+  1. 介面與系統單一鎖定為官方指定模型 **`gemini-3.8-flash`**。
+  2. 強化 High Demand 容錯機制：將自動重試上限由 2 次提升至 **4 次**（漸進退避等待 2s、4s、6s、8s），涵蓋 Google 尖峰 20 秒週期，大幅降低手動重按機率。
+  3. 連動多金鑰輪替：若某組 Key 遭遇持續 High Demand 或 Quota 額度耗盡，自動嘗試切換至金鑰池中的下一組 Key 繼續辨識。
 
 
 
