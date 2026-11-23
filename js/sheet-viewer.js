@@ -202,11 +202,17 @@
         const uint8 = new Uint8Array(e.target.result);
         loadPdfDocument(uint8, name);
       };
+      reader.onerror = () => {
+        setStatus(`❌ 讀取檔案失敗：「${name}」無法存取`, 'error');
+      };
       reader.readAsArrayBuffer(file);
     } else if (file.type.startsWith('image/') || /\.(jpg|jpeg|png|webp|bmp)$/.test(lower)) {
       const reader = new FileReader();
       reader.onload = (e) => {
         loadImageDataUrl(e.target.result, name);
+      };
+      reader.onerror = () => {
+        setStatus(`❌ 讀取圖片失敗：「${name}」無法存取`, 'error');
       };
       reader.readAsDataURL(file);
     } else {
@@ -344,37 +350,53 @@
       viewerState.onPageChangeCallback = options.onPageChange;
     }
 
-    // 檔案選取器
+    // 檔案選取器 (點擊時清空 value，確保重複選取同一份 PDF/JPG 也能正常觸發 change)
     if (dom.fileInput) {
+      dom.fileInput.addEventListener('click', (e) => {
+        e.target.value = '';
+      });
       dom.fileInput.addEventListener('change', (e) => {
         const file = e.target.files && e.target.files[0];
         if (file) handleUserFile(file);
       });
     }
 
-    // 拖曳上傳區 (Drag & Drop)
-    if (dom.dropZone) {
+    // 拖曳上傳區 (Drag & Drop) - 同時涵蓋上方上傳盒、下方大塊空白預覽區與畫布舞台區
+    const dropTargets = [dom.dropZone, dom.emptyPlaceholder, dom.canvasStageWrapper].filter(
+      t => t && typeof t.addEventListener === 'function'
+    );
+    dropTargets.forEach(target => {
       ['dragenter', 'dragover'].forEach(evtName => {
-        dom.dropZone.addEventListener(evtName, (e) => {
+        target.addEventListener(evtName, (e) => {
           e.preventDefault();
           e.stopPropagation();
-          dom.dropZone.classList.add('drag-over');
+          if (dom.dropZone) dom.dropZone.classList.add('drag-over');
         });
       });
 
       ['dragleave', 'drop'].forEach(evtName => {
-        dom.dropZone.addEventListener(evtName, (e) => {
+        target.addEventListener(evtName, (e) => {
           e.preventDefault();
           e.stopPropagation();
-          dom.dropZone.classList.remove('drag-over');
+          if (dom.dropZone) dom.dropZone.classList.remove('drag-over');
         });
       });
 
-      dom.dropZone.addEventListener('drop', (e) => {
+      target.addEventListener('drop', (e) => {
         const files = e.dataTransfer && e.dataTransfer.files;
         if (files && files.length > 0) {
           handleUserFile(files[0]);
         }
+      });
+    });
+
+    // 全視窗防誤下載保護：防止使用者將 PDF 拖曳到框外空白處時，瀏覽器將其當成檔案網址直接下載
+    if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
+      window.addEventListener('dragover', (e) => {
+        e.preventDefault();
+      });
+      window.addEventListener('drop', (e) => {
+        e.preventDefault();
       });
     }
 

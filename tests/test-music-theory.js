@@ -164,4 +164,64 @@ assert.strictEqual(SheetExporter.formatTransposedTagText('37-9+5', 'Am', 'Cm', '
 assert.deepStrictEqual(Object.keys(SheetExporter.TAG_THEME_STYLES), ['red-box', 'clean-cover', 'blue-box', 'yellow-box']);
 console.log('  ✔ 匯出標籤三種模式格式化 (英文 / 固定調數字 / 練功對照) 與 4 種匯出配色主題驗證 100% 通過');
 
-console.log('\n🎉 所有測試案例 100% 通過！');
+// 7. 測試實測可用視覺模型清單、額度統計函式與金鑰池管理 (防止未定義函式回歸錯誤)
+console.log('\n【測試組 7】可用視覺模型配置、額度統計 (getTokenUsageStats) 與金鑰池防護驗證：');
+assert(Array.isArray(SheetParser.AVAILABLE_VISION_MODELS), 'AVAILABLE_VISION_MODELS 應為陣列');
+assert.strictEqual(SheetParser.getModelName(), 'gemini-3.6-flash', '預設模型應為實測最穩定快速的 gemini-3.6-flash');
+assert(!SheetParser.AVAILABLE_VISION_MODELS.includes('gemini-3.8-pro'), '不應包含不存在的 gemini-3.8-pro');
+const quotaStats = SheetParser.getTokenUsageStats();
+assert.strictEqual(typeof quotaStats.remainingRequests, 'number', 'remainingRequests 應為有效數值');
+assert.strictEqual(quotaStats.freeDailyRequestLimit, 20, '單組 Key 每日基礎額度應為 20 次');
+const poolInfo = SheetParser.getApiKeyPoolInfo();
+assert.strictEqual(typeof poolInfo.total, 'number', '金鑰池統計應正常回傳');
+console.log(`  ✔ 預設模型 [${SheetParser.getModelName()}]、備援清單 [${SheetParser.AVAILABLE_VISION_MODELS.join(', ')}] 與額度統計驗證 100% 通過`);
+
+// 模擬 503 High Demand 跨模型自動備援測試
+(async () => {
+  const origFetch = global.fetch;
+  const calledEndpoints = [];
+  global.fetch = async (url) => {
+    calledEndpoints.push(url);
+    if (url.includes('gemini-3.8-flash')) {
+      return {
+        ok: false,
+        status: 503,
+        json: async () => ({ error: { message: 'This model is currently experiencing high demand.' } })
+      };
+    }
+    return {
+      ok: true,
+      status: 200,
+      json: async () => ({
+        usageMetadata: { promptTokenCount: 100, candidatesTokenCount: 50, totalTokenCount: 150 },
+        candidates: [{
+          content: {
+            parts: [{
+              text: JSON.stringify({
+                detectedSourceKey: 'Am',
+                detectedTargetKey: 'Cm',
+                chords: [{ raw: '6m', xPercent: 12.5, yPercent: 40.0, line: 1 }]
+              })
+            }]
+          }
+        }]
+      })
+    };
+  };
+
+  try {
+    const res = await SheetParser.recognizeSheetPage('data:image/jpeg;base64,AA==', {
+      fileName: 'mock_failover_test.pdf',
+      pageNumber: 99,
+      forceRefresh: true,
+      apiKey: 'TEST_KEY_123',
+      model: 'gemini-3.8-flash'
+    });
+    assert.strictEqual(res.usedModel, 'gemini-3.6-flash', '當 3.8-flash 發生 503 High Demand 時，應自動備援切換至 gemini-3.6-flash');
+    assert.strictEqual(res.chords.length, 1, '備援模型應成功解析出 1 個和弦');
+    console.log(`  ✔ 跨模型防塞車自動備援驗證通過：模擬 gemini-3.8-flash 發生 503 High Demand ➔ 自動秒切 [${res.usedModel}] 完成辨識`);
+    console.log('\n🎉 所有測試案例 100% 通過！');
+  } finally {
+    global.fetch = origFetch;
+  }
+})();

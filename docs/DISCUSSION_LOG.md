@@ -234,5 +234,35 @@
   2. **金鑰池管理與額度動態倍增**：於 `js/sheet-parser.js` 實作 `getApiKeys()`、`getApiKeyPoolInfo()` 與 `rotateApiKey()`，系統每日可用額度依 Key 數量動態加總（例如 2 組 = 40 次，3 組 = 60 次）。
   3. **自動故障轉移（Auto-failover）**：在 `recognizeSheetPage()` 辨識迴圈中，當目前使用的 Key 遭遇 `Quota exceeded` 時，程式自動顯示切換提示並無縫調用下一組可用 Key 繼續辨識，完全無需使用者手動改 Key 重新操作。
 
+---
+
+## 📅 2026-11-23：昨晚家裡分支退版根因排查、Google 官方可用視覺模型實測與跨模型自動備援 (ISSUE-010 & ISSUE-011)
+
+### 21. 昨晚家裡分支 (`backup-20261122`) 拖曳 PDF 變成直接下載之根因分析與防護 (ISSUE-011)
+- **問題回報**：
+  - 使用者反映昨晚在家裡更新一版後，將 PDF 拉進瀏覽器時無法載入，反而直接變成下載檔案並出現在下載資料夾，因此先退回前一版 (`05c92cf`)。
+- **根因定位**：
+  - 比對 `origin/backup-20261122` 發現：昨晚 Commit `10c6c7b` 刪除了 `getDailyLimitForModel()` 函式定義，但第 323 行的 `enrichStatsWithQuota()` 內仍殘留呼叫 `getDailyLimitForModel(model)`。
+  - 當網頁啟動執行 `bindEvents()` 時，排在第一順位的 `updateApiKeyStatusUI()` 觸發 `ReferenceError: getDailyLimitForModel is not defined` 而中斷，導致排在後面的 `SheetViewer.init()` 根本沒有執行，所有拖曳事件 (`e.preventDefault()`) 未綁定，瀏覽器遂將拖入的 PDF 直接當成檔案下載。
+- **修復與強化措施**：
+  1. 調整 `js/app.js` 初始化順序，確保 `SheetViewer.init()` 最優先執行，並以 `try/catch` 包覆狀態列更新。
+  2. 於 `js/sheet-viewer.js` 將拖曳接收範圍擴大至「上方上傳盒 + 下方大塊空白預覽區 + 畫布舞台區」，並於 `window` 綁定全域 `dragover / drop` `e.preventDefault()` 防誤下載保護。
+  3. 於檔案選取器點擊時重置 `e.target.value = ''`，確保重複選取同一份 PDF/JPG 亦能正常觸發載入。
+  4. 於 `tests/test-music-theory.js` 新增【測試組 7】自動化檢測 `getTokenUsageStats()` 與金鑰池函式，杜絕未定義函式回歸。
+
+---
+
+### 22. Google 官方伺服器可用視覺模型連線實測與「多模型 × 多金鑰」智慧自動備援 (ISSUE-010)
+- **官方端點實測結果**：
+  - 直接向 `https://generativelanguage.googleapis.com/v1beta/models` 查詢並發送含圖片之 Vision 請求實測 16 款模型：
+    - **`gemini-3.6-flash`**：🟢 **1.73 秒極速成功**（與 3.8 同級且完全不塞車，設為預設主力推薦）。
+    - **`gemini-3-flash-preview`**：🟢 **1.58 秒極速成功**（列為第一高速備援）。
+    - **`gemini-3.5-flash-lite`**：🟢 **3.11 秒穩定成功**（列為輕量穩定備援）。
+    - **`gemini-3.8-flash`**：🔴 尖峰時段易遇 `503 Server Unavailable (High Demand)`（因全球舊版用戶皆被官方錯誤訊息導向此模型，保留於選單供選用）。
+    - **`gemini-3.8-pro`**：❌ 官方清單中無此模型 (404 Not Found)，已自選單移除。
+- **跨模型 × 多金鑰自動備援架構**：
+  - 於 `js/sheet-parser.js` 實作雙層容錯迴圈 (`candidateModels` × `allKeys`)：當使用者選用的模型遭遇 503 High Demand 或逾時，系統在重試 1 次後立即自動切換至下一個暢通備援模型（如由 `3.8-flash` 秒切至 `3.6-flash`）；若遭遇單一 Key 額度滿，則先輪替下一組 Key，全部 Key 皆滿時再跨模型備援，並通過自動化模擬測試驗證。
+
+
 
 

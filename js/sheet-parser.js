@@ -21,13 +21,20 @@
   'use strict';
 
   const STORAGE_KEY_API = 'chord_transposer_gemini_api_key';
-  const STORAGE_KEY_MODEL = 'chord_transposer_gemini_model';
+  const STORAGE_KEY_MODEL = 'chord_transposer_gemini_model_v2';
   const STORAGE_KEY_CACHE = 'chord_transposer_vision_cache_v1';
   const STORAGE_KEY_TOKEN_STATS = 'chord_transposer_token_stats_v1';
-  const DEFAULT_GEMINI_MODEL = 'gemini-3.8-flash';
 
-  // Google AI Studio 免費方案 (Free Tier) 每日額度上限
-  // 注意：Google 針對最新旗艦模型 gemini-3.8-flash 的 Free Tier 限制為每日 20 次 (RPD = 20)
+  // 經 Google 官方 API 實測支援 Vision 多模態且於 Free Tier 可用之模型清單 (依穩定度與回應速度排序)
+  const AVAILABLE_VISION_MODELS = [
+    'gemini-3.6-flash',
+    'gemini-3-flash-preview',
+    'gemini-3.5-flash-lite',
+    'gemini-3.8-flash'
+  ];
+  const DEFAULT_GEMINI_MODEL = 'gemini-3.6-flash';
+
+  // Google AI Studio 免費方案 (Free Tier) 單一模型每組 Key 每日基礎額度參考值 (RPD = 20)
   const FREE_DAILY_REQUEST_LIMIT = 20;
   const FREE_DAILY_TOKEN_LIMIT = 1000000;
 
@@ -249,9 +256,9 @@
 
   function getModelName() {
     if (typeof localStorage === 'undefined') return DEFAULT_GEMINI_MODEL;
-    const saved = localStorage.getItem(STORAGE_KEY_MODEL);
-    // 自動將舊版停用模型升級為最新的 gemini-3.8-flash
-    if (!saved || saved === 'gemini-2.5-flash' || saved === 'gemini-2.0-flash' || saved === 'gemini-1.5-flash') {
+    const saved = (localStorage.getItem(STORAGE_KEY_MODEL) || '').trim();
+    // 自動將未設定、已停用或不存在之舊模型 (如 gemini-3.8-pro, gemini-2.5-flash, gemini-2.0-flash) 校正為實測可用模型
+    if (!saved || !AVAILABLE_VISION_MODELS.includes(saved)) {
       localStorage.setItem(STORAGE_KEY_MODEL, DEFAULT_GEMINI_MODEL);
       return DEFAULT_GEMINI_MODEL;
     }
@@ -542,8 +549,8 @@
    * @returns {Promise<object>} API 回傳之 JSON 物件
    */
   async function callGeminiApiWithRetry(endpoint, payload, options = {}) {
-    const maxRetries = 2; // 最多重試 2 次 (總計最多嘗試 3 次)
-    const timeoutMs = 25000; // 單次請求 25 秒逾時上限 (防卡死)
+    const maxRetries = 1; // 單一模型最多快速重試 1 次 (若仍塞車則交由外層自動切換至備援模型)
+    const timeoutMs = 20000; // 單次請求 20 秒逾時上限 (防卡死並加速跨模型備援)
     const userSignal = options.signal;
     const onRetry = options.onRetry;
 
@@ -582,17 +589,19 @@
 
         if (!response.ok) {
           let errDetail = `HTTP ${response.status}`;
-          let isRetryable = (response.status === 503 || response.status === 429 || response.status === 500);
+          let isRetryable = (response.status === 503 || response.status === 500);
           try {
             const errJson = await response.json();
             if (errJson && errJson.error && errJson.error.message) {
               errDetail = errJson.error.message;
               const lower = errDetail.toLowerCase();
-              if (lower.includes('high demand') ||
+              const isQuota = lower.includes('quota exceeded') || errDetail.includes('limit: 20') || lower.includes('limit: 0');
+              if (!isQuota && (
+                  lower.includes('high demand') ||
                   lower.includes('spikes in demand') ||
                   lower.includes('temporarily unavailable') ||
                   lower.includes('overloaded') ||
-                  (lower.includes('exhausted') && !lower.includes('quota'))) {
+                  lower.includes('exhausted'))) {
                 isRetryable = true;
               }
             }
@@ -601,9 +610,9 @@
           }
 
           if (isRetryable && attempt < maxRetries) {
-            const waitSec = 3 * (attempt + 1); // 第 1 次等 3 秒，第 2 次等 6 秒
+            const waitSec = 2;
             if (typeof onRetry === 'function') {
-              onRetry(attempt + 1, maxRetries, waitSec, '伺服器高負載 (High Demand)');
+              onRetry(attempt + 1, maxRetries, waitSec, '伺服器尖峰負載 (High Demand)');
             }
             await new Promise((resolve, reject) => {
               const waitTimer = setTimeout(resolve, waitSec * 1000);
@@ -617,10 +626,10 @@
             continue;
           }
 
-          if (errDetail.toLowerCase().includes('quota exceeded') || errDetail.includes('limit: 20')) {
+          if (errDetail.toLowerCase().includes('quota exceeded') || errDetail.includes('limit: 20') || errDetail.includes('limit: 0')) {
             const timeMatch = errDetail.match(/retry in ([0-9]+h[0-9]+m|[0-9]+m|[0-9]+s)/i);
             const retryHint = timeMatch ? `（Google 預計於 ${timeMatch[1]} 後重置額度）` : '';
-            throw new Error(`今日免費額度已達上限：Google 針對此模型的免費配額為每日 20 次${retryHint}。建議更換另一個 Google 帳號申請新 API Key 貼上即可秒恢復，或直接載入已儲存之專案檔 (.json)。`);
+            throw new Error(`今日免費額度已達上限：Google 針對此模型的免費配額為每日 20 次${retryHint}。`);
           }
 
           throw new Error(`Gemini API 呼叫失敗 (${errDetail})`);
@@ -720,43 +729,95 @@
     };
 
     let resultJson = null;
+    let lastError = null;
+    let usedModel = model;
     const totalKeys = allKeys.length;
+    // 建立模型自動備援順序：優先使用目前選取之模型，若遭遇 503 High Demand / 逾時 / 額度耗盡，自動無縫切換至其他實測暢通之視覺模型
+    const candidateModels = [model, ...AVAILABLE_VISION_MODELS.filter(m => m !== model)];
 
-    for (let keyAttempt = 0; keyAttempt < totalKeys; keyAttempt++) {
-      const currentKeyIndex = (activeApiKeyIndex + keyAttempt) % totalKeys;
-      const currentApiKey = allKeys[currentKeyIndex];
-      const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(currentApiKey)}`;
+    outerModelLoop:
+    for (let mIdx = 0; mIdx < candidateModels.length; mIdx++) {
+      const currentModel = candidateModels[mIdx];
 
-      try {
-        resultJson = await callGeminiApiWithRetry(endpoint, payload, options);
-        // 呼叫成功！鎖定當前這組 Key 作為後續預設
-        activeApiKeyIndex = currentKeyIndex;
-        break;
-      } catch (err) {
-        const errMsg = String(err.message || '');
-        const isQuotaExceeded = errMsg.includes('今日免費額度已達上限') ||
-                                errMsg.toLowerCase().includes('quota exceeded') ||
-                                errMsg.includes('limit: 20');
+      for (let keyAttempt = 0; keyAttempt < totalKeys; keyAttempt++) {
+        const currentKeyIndex = (activeApiKeyIndex + keyAttempt) % totalKeys;
+        const currentApiKey = allKeys[currentKeyIndex];
+        const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(currentModel)}:generateContent?key=${encodeURIComponent(currentApiKey)}`;
 
-        // 若額度用完且金鑰池中還有其他 Key 未嘗試過，自動切換至下一組重試！
-        if (isQuotaExceeded && keyAttempt < totalKeys - 1) {
-          const nextIndex = (currentKeyIndex + 1) % totalKeys;
-          if (typeof options.onRetry === 'function') {
-            options.onRetry(
-              1, 1, 1,
-              `第 ${currentKeyIndex + 1} 組 Key 今日額度已滿，正在自動無縫切換至第 ${nextIndex + 1} 組 Key 繼續`
-            );
+        try {
+          resultJson = await callGeminiApiWithRetry(endpoint, payload, options);
+          activeApiKeyIndex = currentKeyIndex;
+          usedModel = currentModel;
+          if (currentModel !== model) {
+            setModelName(currentModel);
           }
-          await new Promise(resolve => setTimeout(resolve, 800));
-          continue;
-        }
+          break outerModelLoop;
+        } catch (err) {
+          if (err && err.name === 'AbortError') {
+            throw err;
+          }
+          lastError = err;
+          const errMsg = String(err.message || '');
+          const lowerMsg = errMsg.toLowerCase();
+          const isQuotaExceeded = errMsg.includes('今日免費額度已達上限') ||
+                                  lowerMsg.includes('quota exceeded') ||
+                                  errMsg.includes('limit: 20') ||
+                                  errMsg.includes('limit: 0');
+          const isHighDemandOrUnavailable = lowerMsg.includes('high demand') ||
+                                            lowerMsg.includes('spikes in demand') ||
+                                            lowerMsg.includes('temporarily unavailable') ||
+                                            lowerMsg.includes('overloaded') ||
+                                            lowerMsg.includes('http 503') ||
+                                            lowerMsg.includes('not found') ||
+                                            lowerMsg.includes('no longer available') ||
+                                            errMsg.includes('辨識逾時');
 
-        if (isQuotaExceeded && totalKeys > 1) {
-          throw new Error(`今日免費額度已全數用完：您設定的 ${totalKeys} 組 API Key 今日額度皆已耗盡（每組 20 次，共計 ${totalKeys * 20} 次）。請等待明日重置或載入已儲存之專案檔 (.json)。`);
-        }
+          // 情況 A：當前模型伺服器塞車 (503 High Demand / Timeout) 或停用 ➔ 直接跳出內層迴圈，秒切下一個暢通備援模型！
+          if (isHighDemandOrUnavailable && mIdx < candidateModels.length - 1) {
+            const nextModel = candidateModels[mIdx + 1];
+            if (typeof options.onRetry === 'function') {
+              options.onRetry(
+                1, 1, 1,
+                `模型 ${currentModel} 目前伺服器塞車，正自動切換至暢通備援模型 ${nextModel}`
+              );
+            }
+            await new Promise(resolve => setTimeout(resolve, 500));
+            break; // 跳至外層 candidateModels 的下一個模型
+          }
 
-        throw err;
+          // 情況 B：當前 Key 在此模型的額度已滿 ➔ 先嘗試切換下一組 API Key
+          if (isQuotaExceeded && keyAttempt < totalKeys - 1) {
+            const nextIndex = (currentKeyIndex + 1) % totalKeys;
+            if (typeof options.onRetry === 'function') {
+              options.onRetry(
+                1, 1, 1,
+                `第 ${currentKeyIndex + 1} 組 Key 於 ${currentModel} 額度已滿，自動切換至第 ${nextIndex + 1} 組 Key`
+              );
+            }
+            await new Promise(resolve => setTimeout(resolve, 600));
+            continue;
+          }
+
+          // 情況 C：所有 Key 在此模型的額度皆已滿，但還有其他備援模型可試 ➔ 自動切換至下一個備援模型
+          if (isQuotaExceeded && mIdx < candidateModels.length - 1) {
+            const nextModel = candidateModels[mIdx + 1];
+            if (typeof options.onRetry === 'function') {
+              options.onRetry(
+                1, 1, 1,
+                `模型 ${currentModel} 今日額度已滿，正自動切換至備援模型 ${nextModel} 繼續辨識`
+              );
+            }
+            await new Promise(resolve => setTimeout(resolve, 600));
+            break;
+          }
+
+          throw err;
+        }
       }
+    }
+
+    if (!resultJson) {
+      throw lastError || new Error('所有可用視覺模型與 API Key 皆無法完成辨識，請稍後再試。');
     }
 
     // 記錄 Google API 官方回傳之精確 Token 消耗量 (usageMetadata)
@@ -797,6 +858,7 @@
 
     return {
       source: 'gemini',
+      usedModel,
       usage: {
         promptTokens: tokenStats.lastPromptTokens,
         outputTokens: tokenStats.lastOutputTokens,
@@ -808,6 +870,7 @@
   }
 
   return {
+    AVAILABLE_VISION_MODELS,
     BUILTIN_SAMPLE_RECOGNITION,
     getApiKey,
     getApiKeys,

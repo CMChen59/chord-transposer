@@ -120,5 +120,30 @@
 
 ---
 
+### [ISSUE-010] Google API 可用視覺模型實測篩選與跨模型防塞車自動備援 (Multi-Model × Multi-Key Auto-Failover)
+- **狀態**：`🟢 Resolved (已實測鎖定 4 款可用視覺模型並實作跨模型自動備援)`
+- **發現日期**：2026-11-23
+- **問題描述**：
+  - 因 Google 停用舊模型時統一將全球用戶導向 `gemini-3.8-flash`，導致 `gemini-3.8-flash` 尖峰時段頻繁發生 `503 Server Unavailable (High Demand)`。
+  - 原選單中的 `gemini-3.8-pro` 在官方端點並不存在 (404)。
+- **解決方案**：
+  1. 直接對 Google `v1beta/models` 進行多模態圖片實測，篩選出 4 款官方真實可用且支援 Vision 的模型：`gemini-3.6-flash`（實測 1.73 秒極速且不塞車，設為預設主力）、`gemini-3-flash-preview`（1.58 秒回應）、`gemini-3.5-flash-lite` 與 `gemini-3.8-flash`，並移除不存在的 `gemini-3.8-pro`。
+  2. 於 `js/sheet-parser.js` 實作雙層「多模型 × 多金鑰」自動故障轉移：當選用模型遭遇 503 塞車、逾時或額度耗盡時，自動無縫切換至下一個暢通備援模型完成辨識。
+
+---
+
+### [ISSUE-011] 拖曳 PDF 進瀏覽器時若未初始化或拖至框外會觸發瀏覽器直接下載 PDF
+- **狀態**：`🟢 Resolved (已修復初始化順序、擴大拖曳接收區並新增全視窗防誤下載攔截)`
+- **發現日期**：2026-11-23
+- **問題描述**：
+  1. 昨晚家裡分支 (`backup-20261122`) 因刪除了 `getDailyLimitForModel` 卻在 `enrichStatsWithQuota` 殘留呼叫，導致 `updateApiKeyStatusUI()` 拋出 `ReferenceError`，使後續的 `SheetViewer.init()` 未被執行，拖曳事件完全失效而變成瀏覽器直接下載 PDF。
+  2. 原先僅上方小型上傳盒 (`#sheetDropZone`) 綁定拖曳事件，若將 PDF 拖曳至下方大塊空白預覽區或視窗空白處，亦會觸發瀏覽器預設下載行為。
+- **解決方案**：
+  1. 確保 `enrichStatsWithQuota` 無未定義函式引用，並於 `tests/test-music-theory.js` 新增【測試組 7】自動化回歸測試保護；同時調整 `js/app.js` 確保 `SheetViewer.init()` 優先執行並以 `try/catch` 隔離狀態列渲染。
+  2. 將拖曳上傳接收區擴大至上方上傳盒、下方空白預留區與畫布舞台區，並於 `window` 註冊 `dragover / drop` `e.preventDefault()` 全視窗防誤下載保護。
+  3. 於檔案選取器 `click` 時自動重置 `e.target.value = ''`，支援重複選取同一份琴譜檔案。
+
+---
+
 ## 歷史已解決問題紀錄 (Resolved Issues)
 *(待開發階段實測後陸續歸檔於此)*

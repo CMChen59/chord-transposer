@@ -1211,9 +1211,8 @@ C CM7 | C7 | Em | bE | Dm | Em | Fm | Gsus4 | C`
     });
 
     // 模式二 (T2-1 & T2-2)：初始化 PDF / JPG 琴譜載入、預覽與 Gemini AI 抓譜模組
+    // 優先確保 SheetViewer.init 執行，保證拖曳上傳與防誤下載保護 100% 生效
     if (window.SheetViewer) {
-      updateApiKeyStatusUI();
-
       SheetViewer.init({
         statusText: els.sheetViewerStatus,
         dropZone: els.sheetDropZone,
@@ -1266,6 +1265,12 @@ C CM7 | C7 | Em | bE | Dm | Em | Fm | Gsus4 | C`
           renderSheetOverlayAndChordsBar();
         }
       });
+
+      try {
+        updateApiKeyStatusUI();
+      } catch (err) {
+        console.error('更新 API Key 狀態列時發生錯誤:', err);
+      }
 
       // 綁定 AI 辨識與 API Key 設定按鈕
       if (els.btnRunAiRecognize) {
