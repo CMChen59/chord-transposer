@@ -261,7 +261,10 @@
     - **`gemini-3.8-flash`**：🔴 尖峰時段易遇 `503 Server Unavailable (High Demand)`（因全球舊版用戶皆被官方錯誤訊息導向此模型，保留於選單供選用）。
     - **`gemini-3.8-pro`**：❌ 官方清單中無此模型 (404 Not Found)，已自選單移除。
 - **跨模型 × 多金鑰自動備援架構**：
-  - 於 `js/sheet-parser.js` 實作雙層容錯迴圈 (`candidateModels` × `allKeys`)：當使用者選用的模型遭遇 503 High Demand 或逾時，系統在重試 1 次後立即自動切換至下一個暢通備援模型（如由 `3.8-flash` 秒切至 `3.6-flash`）；若遭遇單一 Key 額度滿，則先輪替下一組 Key，全部 Key 皆滿時再跨模型備援，並通過自動化模擬測試驗證。
+  - 於 `js/sheet-parser.js` 實作雙層容錯迴圈 (`candidateModels` × `allKeys`)：當使用者選用的模型遭遇 503 High Demand、連線中斷 (`Failed to fetch`) 或逾時，系統在重試 1 次後立即自動切換至下一個暢通備援模型（如由 `3.8-flash` 秒切至 `3.6-flash`）；若遭遇單一 Key 額度滿，則先輪替下一組 Key，全部 Key 皆滿時再跨模型備援，並通過自動化模擬測試驗證。
+- **修復 `⚠️ Failed to fetch`（深度思考逾時斷線與大圖傳輸最佳化）**：
+  1. 實測發現 Gemini 3.x 標準 Flash 模型預設開啟深度思考 (Thinking Mode)，在計算整頁 40~50 個和弦座標時會思考超過 25 秒，導致 Google 伺服器主動切斷 TCP 連線（瀏覽器拋出 `TypeError: Failed to fetch`）。
+  2. 新增 `buildGenerationConfigForModel()` 為非 `-lite` 模型顯式加上 `thinkingConfig: { thinkingBudget: 0 }`（關閉冗長思考直接輸出 JSON），並新增 `compressImageForVision()` 將上傳給 AI 的圖片壓縮至最長邊 `1600px`（不影響畫面 2 倍高清顯示與匯出），同時將 `Failed to fetch` 納入跨模型自動備援條件。經真實樂譜端到端實測，成功於 18 秒內一次抓出全頁 52 個和弦座標！
 
 
 

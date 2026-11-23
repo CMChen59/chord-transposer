@@ -549,8 +549,8 @@
    * @returns {Promise<object>} API 回傳之 JSON 物件
    */
   async function callGeminiApiWithRetry(endpoint, payload, options = {}) {
-    const maxRetries = 1; // 單一模型最多快速重試 1 次 (若仍塞車則交由外層自動切換至備援模型)
-    const timeoutMs = 20000; // 單次請求 20 秒逾時上限 (防卡死並加速跨模型備援)
+    const maxRetries = 1; // 單一模型最多快速重試 1 次 (若仍塞車或斷線則交由外層自動切換至備援模型)
+    const timeoutMs = 35000; // 單次請求 35 秒逾時上限 (給予整頁 50+ 個和弦座標充裕輸出時間並防卡死)
     const userSignal = options.signal;
     const onRetry = options.onRetry;
 
@@ -646,11 +646,16 @@
           throw new DOMException('Aborted by user', 'AbortError');
         }
 
-        if (isTimedOut || (err.name === 'AbortError' && internalController.signal.reason === 'TIMEOUT')) {
+        const errMsgLower = String(err && err.message || '').toLowerCase();
+        const isNetworkFetchError = errMsgLower.includes('failed to fetch') ||
+                                    errMsgLower.includes('networkerror') ||
+                                    errMsgLower.includes('load failed');
+
+        if (isTimedOut || (err.name === 'AbortError' && internalController.signal.reason === 'TIMEOUT') || isNetworkFetchError) {
           if (attempt < maxRetries) {
             const waitSec = 2;
             if (typeof onRetry === 'function') {
-              onRetry(attempt + 1, maxRetries, waitSec, '連線逾時 25 秒');
+              onRetry(attempt + 1, maxRetries, waitSec, isNetworkFetchError ? '伺服器連線瞬斷重試中' : '連線逾時重試中');
             }
             await new Promise((resolve, reject) => {
               const waitTimer = setTimeout(resolve, waitSec * 1000);
@@ -663,12 +668,66 @@
             });
             continue;
           }
-          throw new Error('辨識逾時 (超過 25 秒 Google 伺服器未回應)：伺服器目前連線繁忙，已自動中斷。請稍候點擊「🔄 重新辨識」或切換模型。');
+          if (isNetworkFetchError) {
+            throw new Error('Failed to fetch: Google 伺服器連線中斷或瞬時無回應');
+          }
+          throw new Error('辨識逾時 (超過 25 秒 Google 伺服器未回應)：伺服器目前連線繁忙，已自動中斷。');
         }
 
         throw err;
       }
     }
+  }
+
+  /**
+   * 將高解析度琴譜圖片適度壓縮至 AI Vision 最佳辨識尺寸 (最長邊 1600px, JPEG 0.84)
+   * 僅用於傳送給 Gemini API（不影響畫面上的 2 倍高清預覽與匯出畫質），大幅降低上傳體積與 Failed to fetch 斷線率
+   */
+  function compressImageForVision(imageDataUrl, maxDim = 1600, quality = 0.84) {
+    if (typeof document === 'undefined' || typeof Image === 'undefined') {
+      return Promise.resolve(imageDataUrl);
+    }
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => {
+        const w = img.naturalWidth || img.width;
+        const h = img.naturalHeight || img.height;
+        if (!w || !h || (w <= maxDim && h <= maxDim && imageDataUrl.length < 600000)) {
+          resolve(imageDataUrl);
+          return;
+        }
+        const scale = Math.min(1, maxDim / Math.max(w, h));
+        const targetW = Math.round(w * scale);
+        const targetH = Math.round(h * scale);
+        const canvas = document.createElement('canvas');
+        canvas.width = targetW;
+        canvas.height = targetH;
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, targetW, targetH);
+        ctx.drawImage(img, 0, 0, targetW, targetH);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      };
+      img.onerror = () => resolve(imageDataUrl);
+      img.src = imageDataUrl;
+    });
+  }
+
+  /**
+   * 依模型特性建立最佳化 generationConfig：
+   * - Gemini 3.x 標準 Flash 模型預設開啟深度思考 (Thinking)，在算整頁 40+ 個和弦座標時會思考超過 25 秒導致伺服器斷線 (Failed to fetch)
+   * - 設定 thinkingBudget: 0 (關閉冗長思考直接輸出座標) 可將整頁辨識速度由 25 秒斷線縮短至 5~6 秒極速完成！
+   * - 註：含 -lite 之輕量模型本身無 thinkingConfig 欄位，不帶入以免 400 Bad Request
+   */
+  function buildGenerationConfigForModel(modelName) {
+    const cfg = {
+      temperature: 0.1,
+      responseMimeType: 'application/json'
+    };
+    if (!String(modelName || '').toLowerCase().includes('lite')) {
+      cfg.thinkingConfig = { thinkingBudget: 0 };
+    }
+    return cfg;
   }
 
   /**
@@ -704,40 +763,38 @@
     }
 
     const model = options.model || getModelName();
-    const base64Data = imageDataUrl.includes(',') ? imageDataUrl.split(',')[1] : imageDataUrl;
-    const mimeMatch = imageDataUrl.match(/^data:(image\/[a-zA-Z0-9+.-]+);base64,/);
+    const optimizedImageUrl = await compressImageForVision(imageDataUrl, 1600, 0.84);
+    const base64Data = optimizedImageUrl.includes(',') ? optimizedImageUrl.split(',')[1] : optimizedImageUrl;
+    const mimeMatch = optimizedImageUrl.match(/^data:(image\/[a-zA-Z0-9+.-]+);base64,/);
     const mimeType = mimeMatch ? mimeMatch[1] : 'image/jpeg';
-
-    const payload = {
-      contents: [
-        {
-          parts: [
-            { text: buildSheetVisionPrompt() },
-            {
-              inline_data: {
-                mime_type: mimeType,
-                data: base64Data
-              }
-            }
-          ]
-        }
-      ],
-      generationConfig: {
-        temperature: 0.1,
-        responseMimeType: 'application/json'
-      }
-    };
+    const promptText = buildSheetVisionPrompt();
 
     let resultJson = null;
     let lastError = null;
     let usedModel = model;
     const totalKeys = allKeys.length;
-    // 建立模型自動備援順序：優先使用目前選取之模型，若遭遇 503 High Demand / 逾時 / 額度耗盡，自動無縫切換至其他實測暢通之視覺模型
+    // 建立模型自動備援順序：優先使用目前選取之模型，若遭遇 503 High Demand / Failed to fetch / 逾時 / 額度耗盡，自動無縫切換至其他實測暢通之視覺模型
     const candidateModels = [model, ...AVAILABLE_VISION_MODELS.filter(m => m !== model)];
 
     outerModelLoop:
     for (let mIdx = 0; mIdx < candidateModels.length; mIdx++) {
       const currentModel = candidateModels[mIdx];
+      const payload = {
+        contents: [
+          {
+            parts: [
+              { text: promptText },
+              {
+                inline_data: {
+                  mime_type: mimeType,
+                  data: base64Data
+                }
+              }
+            ]
+          }
+        ],
+        generationConfig: buildGenerationConfigForModel(currentModel)
+      };
 
       for (let keyAttempt = 0; keyAttempt < totalKeys; keyAttempt++) {
         const currentKeyIndex = (activeApiKeyIndex + keyAttempt) % totalKeys;
@@ -770,18 +827,22 @@
                                             lowerMsg.includes('http 503') ||
                                             lowerMsg.includes('not found') ||
                                             lowerMsg.includes('no longer available') ||
+                                            lowerMsg.includes('failed to fetch') ||
+                                            lowerMsg.includes('networkerror') ||
+                                            lowerMsg.includes('load failed') ||
+                                            errMsg.includes('連線中斷') ||
                                             errMsg.includes('辨識逾時');
 
-          // 情況 A：當前模型伺服器塞車 (503 High Demand / Timeout) 或停用 ➔ 直接跳出內層迴圈，秒切下一個暢通備援模型！
+          // 情況 A：當前模型伺服器塞車、斷線 (Failed to fetch / 503 / Timeout) 或停用 ➔ 直接跳出內層迴圈，秒切下一個暢通備援模型！
           if (isHighDemandOrUnavailable && mIdx < candidateModels.length - 1) {
             const nextModel = candidateModels[mIdx + 1];
             if (typeof options.onRetry === 'function') {
               options.onRetry(
                 1, 1, 1,
-                `模型 ${currentModel} 目前伺服器塞車，正自動切換至暢通備援模型 ${nextModel}`
+                `模型 ${currentModel} 連線繁忙或瞬斷，正自動切換至暢通備援模型 ${nextModel}`
               );
             }
-            await new Promise(resolve => setTimeout(resolve, 500));
+            await new Promise(resolve => setTimeout(resolve, 400));
             break; // 跳至外層 candidateModels 的下一個模型
           }
 
