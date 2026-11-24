@@ -627,8 +627,31 @@
           }
 
           if (errDetail.toLowerCase().includes('quota exceeded') || errDetail.includes('limit: 20') || errDetail.includes('limit: 0')) {
-            const timeMatch = errDetail.match(/retry in ([0-9]+h[0-9]+m|[0-9]+m|[0-9]+s)/i);
+            const lowerDetail = errDetail.toLowerCase();
+            const isPerMinute = lowerDetail.includes('per_minute') ||
+                                lowerDetail.includes('per minute') ||
+                                (!lowerDetail.includes('per_day') && !lowerDetail.includes('per day') && !errDetail.includes('limit: 20') && /retry in \d+(\.\d+)?s/i.test(errDetail));
+            if (isPerMinute && attempt < maxRetries) {
+              const waitSec = 3;
+              if (typeof onRetry === 'function') {
+                onRetry(attempt + 1, maxRetries, waitSec, '連續辨識觸發每分鐘流量保護 (RPM)，稍候重試中');
+              }
+              await new Promise((resolve, reject) => {
+                const waitTimer = setTimeout(resolve, waitSec * 1000);
+                if (userSignal) {
+                  userSignal.addEventListener('abort', () => {
+                    clearTimeout(waitTimer);
+                    reject(new DOMException('Aborted by user', 'AbortError'));
+                  }, { once: true });
+                }
+              });
+              continue;
+            }
+            const timeMatch = errDetail.match(/retry in ([0-9]+h[0-9]+m|[0-9]+m|[0-9]+(?:\.[0-9]+)?s)/i);
             const retryHint = timeMatch ? `（Google 預計於 ${timeMatch[1]} 後重置額度）` : '';
+            if (isPerMinute) {
+              throw new Error(`每分鐘請求頻率達上限 (RPM Rate Limit)${retryHint}`);
+            }
             throw new Error(`今日免費額度已達上限：Google 針對此模型的免費配額為每日 20 次${retryHint}。`);
           }
 
@@ -731,6 +754,50 @@
   }
 
   /**
+   * 從 Gemini API 回傳結構中提取並解析 JSON 物件（相容多 part 回傳、markdown 語法框與前後夾雜說明文字）
+   */
+  function extractAndParseResponseJson(apiResponse) {
+    const parts = apiResponse?.candidates?.[0]?.content?.parts;
+    let rawText = '';
+    if (Array.isArray(parts)) {
+      rawText = parts
+        .filter(p => p && !p.thought && typeof p.text === 'string')
+        .map(p => p.text)
+        .join('\n')
+        .trim();
+      if (!rawText && parts[0] && typeof parts[0].text === 'string') {
+        rawText = parts[0].text.trim();
+      }
+    }
+
+    if (!rawText) {
+      throw new Error('Gemini API 未回傳任何辨識文字，請稍後再試或檢查圖片清晰度。');
+    }
+
+    const cleanedJsonStr = rawText
+      .replace(/^```json\s*/i, '')
+      .replace(/^```\s*/i, '')
+      .replace(/\s*```$/i, '')
+      .trim();
+
+    try {
+      return JSON.parse(cleanedJsonStr);
+    } catch (firstErr) {
+      // 若模型在 JSON 前後夾雜了額外字元，嘗試擷取最外層 { ... } 區段
+      const firstBrace = cleanedJsonStr.indexOf('{');
+      const lastBrace = cleanedJsonStr.lastIndexOf('}');
+      if (firstBrace !== -1 && lastBrace > firstBrace) {
+        try {
+          return JSON.parse(cleanedJsonStr.slice(firstBrace, lastBrace + 1));
+        } catch (secondErr) {
+          // 繼續拋出下方標準錯誤
+        }
+      }
+      throw new Error('AI 回傳格式解析失敗，正自動重試或切換備援模型。');
+    }
+  }
+
+  /**
    * 呼叫 Gemini Vision API 辨識單頁琴譜圖片 (DataURL)
    *
    * @param {string} imageDataUrl - 該頁琴譜之 image/jpeg DataURL
@@ -770,6 +837,7 @@
     const promptText = buildSheetVisionPrompt();
 
     let resultJson = null;
+    let parsedObj = null;
     let lastError = null;
     let usedModel = model;
     const totalKeys = allKeys.length;
@@ -802,8 +870,13 @@
         const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(currentModel)}:generateContent?key=${encodeURIComponent(currentApiKey)}`;
 
         try {
-          resultJson = await callGeminiApiWithRetry(endpoint, payload, options);
-          activeApiKeyIndex = currentKeyIndex;
+          const rawResponse = await callGeminiApiWithRetry(endpoint, payload, options);
+          // 於備援迴圈內直接驗證 JSON 解析是否有效，若格式截斷或空白可自動由下一個模型備援
+          parsedObj = extractAndParseResponseJson(rawResponse);
+          resultJson = rawResponse;
+          // 成功後將 activeApiKeyIndex 推進至下一組 Key (Round-Robin 多頁分流)，
+          // 讓第 1 頁、第 2 頁自動交替使用不同組 Key，徹底避免連續頁面撞上單一 Key 的每分鐘 RPM 限流
+          activeApiKeyIndex = (currentKeyIndex + 1) % totalKeys;
           usedModel = currentModel;
           if (currentModel !== model) {
             setModelName(currentModel);
@@ -816,7 +889,11 @@
           lastError = err;
           const errMsg = String(err.message || '');
           const lowerMsg = errMsg.toLowerCase();
-          const isQuotaExceeded = errMsg.includes('今日免費額度已達上限') ||
+          const isRpmLimit = errMsg.includes('每分鐘請求頻率達上限') ||
+                             lowerMsg.includes('per_minute') ||
+                             lowerMsg.includes('per minute');
+          const isQuotaExceeded = isRpmLimit ||
+                                  errMsg.includes('今日免費額度已達上限') ||
                                   lowerMsg.includes('quota exceeded') ||
                                   errMsg.includes('limit: 20') ||
                                   errMsg.includes('limit: 0');
@@ -831,9 +908,24 @@
                                             lowerMsg.includes('networkerror') ||
                                             lowerMsg.includes('load failed') ||
                                             errMsg.includes('連線中斷') ||
-                                            errMsg.includes('辨識逾時');
+                                            errMsg.includes('辨識逾時') ||
+                                            errMsg.includes('格式解析失敗') ||
+                                            errMsg.includes('未回傳任何辨識文字');
 
-          // 情況 A：當前模型伺服器塞車、斷線 (Failed to fetch / 503 / Timeout) 或停用 ➔ 直接跳出內層迴圈，秒切下一個暢通備援模型！
+          // 情況 A：當前 Key 觸發每分鐘 RPM 限流或每日額度已滿，且手邊有多組 Key ➔ 優先切換至下一組 API Key 分流！
+          if (isQuotaExceeded && keyAttempt < totalKeys - 1) {
+            const nextIndex = (currentKeyIndex + 1) % totalKeys;
+            if (typeof options.onRetry === 'function') {
+              options.onRetry(
+                1, 1, 1,
+                `第 ${currentKeyIndex + 1} 組 Key 於 ${currentModel} 觸發限流或額度已滿，自動切換至第 ${nextIndex + 1} 組 Key`
+              );
+            }
+            await new Promise(resolve => setTimeout(resolve, 600));
+            continue;
+          }
+
+          // 情況 B：當前模型伺服器塞車、斷線 (Failed to fetch / 503 / Timeout / 格式異常) 或停用 ➔ 直接跳出內層迴圈，秒切下一個暢通備援模型！
           if (isHighDemandOrUnavailable && mIdx < candidateModels.length - 1) {
             const nextModel = candidateModels[mIdx + 1];
             if (typeof options.onRetry === 'function') {
@@ -846,26 +938,13 @@
             break; // 跳至外層 candidateModels 的下一個模型
           }
 
-          // 情況 B：當前 Key 在此模型的額度已滿 ➔ 先嘗試切換下一組 API Key
-          if (isQuotaExceeded && keyAttempt < totalKeys - 1) {
-            const nextIndex = (currentKeyIndex + 1) % totalKeys;
-            if (typeof options.onRetry === 'function') {
-              options.onRetry(
-                1, 1, 1,
-                `第 ${currentKeyIndex + 1} 組 Key 於 ${currentModel} 額度已滿，自動切換至第 ${nextIndex + 1} 組 Key`
-              );
-            }
-            await new Promise(resolve => setTimeout(resolve, 600));
-            continue;
-          }
-
-          // 情況 C：所有 Key 在此模型的額度皆已滿，但還有其他備援模型可試 ➔ 自動切換至下一個備援模型
+          // 情況 C：所有 Key 在此模型的額度皆已滿（或觸發 RPM 限流），但還有其他備援模型可試 ➔ 自動切換至下一個備援模型
           if (isQuotaExceeded && mIdx < candidateModels.length - 1) {
             const nextModel = candidateModels[mIdx + 1];
             if (typeof options.onRetry === 'function') {
               options.onRetry(
                 1, 1, 1,
-                `模型 ${currentModel} 今日額度已滿，正自動切換至備援模型 ${nextModel} 繼續辨識`
+                `模型 ${currentModel} 額度或頻率已滿，正自動切換至備援模型 ${nextModel} 繼續辨識`
               );
             }
             await new Promise(resolve => setTimeout(resolve, 600));
@@ -877,34 +956,13 @@
       }
     }
 
-    if (!resultJson) {
+    if (!resultJson || !parsedObj) {
       throw lastError || new Error('所有可用視覺模型與 API Key 皆無法完成辨識，請稍後再試。');
     }
 
     // 記錄 Google API 官方回傳之精確 Token 消耗量 (usageMetadata)
     const usageMeta = resultJson?.usageMetadata || {};
     const tokenStats = recordTokenUsage(usageMeta);
-
-    const rawText =
-      resultJson?.candidates?.[0]?.content?.parts?.[0]?.text || '';
-
-    if (!rawText) {
-      throw new Error('Gemini API 未回傳任何辨識文字，請稍後再試或檢查圖片清晰度。');
-    }
-
-    // 解析 JSON (相容可能帶有的 ```json 標籤)
-    const cleanedJsonStr = rawText
-      .replace(/^```json\s*/i, '')
-      .replace(/^```\s*/i, '')
-      .replace(/\s*```$/i, '')
-      .trim();
-
-    let parsedObj = null;
-    try {
-      parsedObj = JSON.parse(cleanedJsonStr);
-    } catch (e) {
-      throw new Error('AI 回傳格式解析失敗，請再點一次辨識。');
-    }
 
     const validChords = sanitizeAndValidateChords(parsedObj.chords || [], pageNumber);
 
@@ -914,8 +972,10 @@
       chords: validChords
     };
 
-    // 寫入快取，後續無限次轉調皆 0 Token
-    saveCachedRecognition(fileName, pageNumber, finalData);
+    // 僅在有成功辨識出和弦時寫入快取，避免空白結果覆蓋快取導致後續無法補抓
+    if (validChords.length > 0) {
+      saveCachedRecognition(fileName, pageNumber, finalData);
+    }
 
     return {
       source: 'gemini',

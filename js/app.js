@@ -1005,11 +1005,11 @@ C CM7 | C7 | Em | bE | Dm | Em | Fm | Gsus4 | C`
 
     currentAiAbortController = new AbortController();
     let timerInterval = null;
-    const startTime = Date.now();
+    let pageStartTime = Date.now();
     let currentStageText = '';
 
     const updateStatusWithTimer = () => {
-      const elapsedSec = Math.floor((Date.now() - startTime) / 1000);
+      const elapsedSec = Math.floor((Date.now() - pageStartTime) / 1000);
       els.aiRecognizeSummary.textContent = `${currentStageText} (已耗時 ${elapsedSec} 秒...)`;
       els.aiRecognizeSummary.style.color = '#fde68a';
     };
@@ -1026,31 +1026,73 @@ C CM7 | C7 | Em | bE | Dm | Em | Fm | Gsus4 | C`
       let totalChordsFound = 0;
       let usedGeminiCount = 0;
       let sessionTokensUsed = 0;
+      const failedPages = [];
 
       for (let i = 0; i < totalCount; i++) {
         const pageItem = targetPages[i];
+        pageStartTime = Date.now();
         currentStageText = forceRefresh
           ? `⏳ 正在強制呼叫 Gemini AI 重新辨識第 ${pageItem.pageNumber} 頁`
           : `⏳ 正在辨識全曲進度：第 ${pageItem.pageNumber} / ${viewerState.pages.length} 頁`;
         updateStatusWithTimer();
 
-        const result = await SheetParser.recognizeSheetPage(pageItem.dataUrl, {
-          fileName: viewerState.fileName,
-          pageNumber: pageItem.pageNumber,
-          forceRefresh,
-          signal: currentAiAbortController.signal,
-          onRetry: (attempt, maxAttempts, waitSec, reason) => {
-            currentStageText = `⏳ ${reason || '伺服器忙碌'}，正在等待 ${waitSec} 秒後重試 (第 ${attempt}/${maxAttempts} 次)`;
-            els.aiRecognizeSummary.textContent = `${currentStageText}...`;
-            els.aiRecognizeSummary.style.color = '#fde68a';
-          }
-        });
+        try {
+          const result = await SheetParser.recognizeSheetPage(pageItem.dataUrl, {
+            fileName: viewerState.fileName,
+            pageNumber: pageItem.pageNumber,
+            forceRefresh,
+            signal: currentAiAbortController.signal,
+            onRetry: (attempt, maxAttempts, waitSec, reason) => {
+              currentStageText = `⏳ [第 ${pageItem.pageNumber} 頁] ${reason || '伺服器忙碌'} (${waitSec} 秒後繼續)`;
+              els.aiRecognizeSummary.textContent = `${currentStageText}...`;
+              els.aiRecognizeSummary.style.color = '#fde68a';
+            }
+          });
 
-        pageItem.chords = result.chords || [];
-        totalChordsFound += pageItem.chords.length;
-        if (result.source === 'gemini') {
-          usedGeminiCount++;
-          sessionTokensUsed += (result.usage?.totalTokens || 0);
+          pageItem.chords = result.chords || [];
+          pageItem.lastError = null;
+          totalChordsFound += pageItem.chords.length;
+
+          if (result.source === 'gemini') {
+            usedGeminiCount++;
+            sessionTokensUsed += (result.usage?.totalTokens || 0);
+          }
+
+          // 若完成的正是目前畫面預覽中的那一頁，立即將和弦標籤渲染上譜面，無須苦等後續頁完成
+          if (pageItem === SheetViewer.getCurrentPage()) {
+            renderSheetOverlayAndChordsBar();
+          }
+
+          // 多頁連續呼叫 AI 時，若下一頁亦需呼叫 Gemini API，插入 1.2 秒頁間安全緩衝以避開 Google RPM 突發流量限制
+          if (result.source === 'gemini' && i < totalCount - 1) {
+            const nextPage = targetPages[i + 1];
+            const nextHasCache = !forceRefresh && SheetParser.getCachedRecognition(viewerState.fileName, nextPage.pageNumber);
+            if (!nextHasCache) {
+              currentStageText = `✅ 第 ${pageItem.pageNumber} 頁完成 (${pageItem.chords.length} 個和弦)，正準備辨識第 ${nextPage.pageNumber} 頁`;
+              updateStatusWithTimer();
+              await new Promise((resolve, reject) => {
+                const gapTimer = setTimeout(resolve, 1200);
+                if (currentAiAbortController && currentAiAbortController.signal) {
+                  currentAiAbortController.signal.addEventListener('abort', () => {
+                    clearTimeout(gapTimer);
+                    reject(new DOMException('Aborted by user', 'AbortError'));
+                  }, { once: true });
+                }
+              });
+            }
+          }
+        } catch (pageErr) {
+          if (pageErr.name === 'AbortError' || pageErr.message === 'Aborted by user' || (currentAiAbortController && currentAiAbortController.signal.aborted)) {
+            throw pageErr;
+          }
+          if (String(pageErr.message || '').includes('MISSING_API_KEY')) {
+            throw pageErr;
+          }
+          pageItem.lastError = pageErr.message || '辨識失敗';
+          failedPages.push({
+            pageNumber: pageItem.pageNumber,
+            message: pageItem.lastError
+          });
         }
       }
 
@@ -1058,6 +1100,18 @@ C CM7 | C7 | Em | bE | Dm | Em | Fm | Gsus4 | C`
       timerInterval = null;
 
       renderTokenUsageStatsBar(sessionTokensUsed);
+      updateApiKeyStatusUI();
+      renderSheetOverlayAndChordsBar();
+
+      if (failedPages.length > 0) {
+        if (totalCount === 1) {
+          throw new Error(failedPages[0].message);
+        }
+        const failedNums = failedPages.map(f => `第 ${f.pageNumber} 頁`).join('、');
+        els.aiRecognizeSummary.textContent = `⚠️ ${failedNums}辨識未完成 (${failedPages[0].message})；已成功頁面已保存 (${totalChordsFound} 個和弦)，再點一次「AI 辨識全曲」即可自動補抓！`;
+        els.aiRecognizeSummary.style.color = '#fda4af';
+        return;
+      }
 
       if (totalCount > 1) {
         els.aiRecognizeSummary.textContent = usedGeminiCount > 0
@@ -1069,11 +1123,11 @@ C CM7 | C7 | Em | bE | Dm | Em | Fm | Gsus4 | C`
           : `⚡ 第 ${currentPageObj.pageNumber} 頁已從快取載入 — 共 ${currentPageObj.chords.length} 個和弦 (0 Token)`;
       }
       els.aiRecognizeSummary.style.color = '#6ee7b7';
-
-      renderSheetOverlayAndChordsBar();
     } catch (err) {
       if (timerInterval) clearInterval(timerInterval);
       timerInterval = null;
+
+      renderSheetOverlayAndChordsBar();
 
       if (err.name === 'AbortError' || err.message === 'Aborted by user' || (currentAiAbortController && currentAiAbortController.signal.aborted)) {
         els.aiRecognizeSummary.textContent = '🛑 已取消 AI 辨識。';
@@ -1244,15 +1298,20 @@ C CM7 | C7 | Em | bE | Dm | Em | Fm | Gsus4 | C`
             });
           }
 
-          if (pageObj.chords && pageObj.chords.length > 0) {
-            const isBuiltin = window.SheetParser && SheetParser.hasBuiltInSampleCache(vState.fileName, pageObj.pageNumber);
-            els.aiRecognizeSummary.textContent = isBuiltin
-              ? `已套用範例和弦座標 (第 ${pageObj.pageNumber} 頁共 ${pageObj.chords.length} 個和弦)`
-              : `第 ${pageObj.pageNumber} 頁已載入 ${pageObj.chords.length} 個和弦標籤 (快取)`;
-            els.aiRecognizeSummary.style.color = '#6ee7b7';
-          } else {
-            els.aiRecognizeSummary.textContent = `第 ${pageObj.pageNumber} / ${totalPages} 頁已就緒，可點擊「AI 辨識全曲」`;
-            els.aiRecognizeSummary.style.color = '#94a3b8';
+          if (!currentAiAbortController) {
+            if (pageObj.chords && pageObj.chords.length > 0) {
+              const isBuiltin = window.SheetParser && SheetParser.hasBuiltInSampleCache(vState.fileName, pageObj.pageNumber);
+              els.aiRecognizeSummary.textContent = isBuiltin
+                ? `已套用範例和弦座標 (第 ${pageObj.pageNumber} 頁共 ${pageObj.chords.length} 個和弦)`
+                : `第 ${pageObj.pageNumber} 頁已載入 ${pageObj.chords.length} 個和弦標籤 (快取)`;
+              els.aiRecognizeSummary.style.color = '#6ee7b7';
+            } else if (pageObj.lastError) {
+              els.aiRecognizeSummary.textContent = `⚠️ 第 ${pageObj.pageNumber} 頁尚未完成辨識 (${pageObj.lastError}) — 點擊「AI 辨識全曲」即可自動補抓本頁`;
+              els.aiRecognizeSummary.style.color = '#fda4af';
+            } else {
+              els.aiRecognizeSummary.textContent = `第 ${pageObj.pageNumber} / ${totalPages} 頁已就緒，可點擊「AI 辨識全曲」`;
+              els.aiRecognizeSummary.style.color = '#94a3b8';
+            }
           }
 
           renderSheetOverlayAndChordsBar();

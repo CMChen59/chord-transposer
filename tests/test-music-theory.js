@@ -220,6 +220,54 @@ console.log(`  ✔ 預設模型 [${SheetParser.getModelName()}]、備援清單 [
     assert.strictEqual(res.usedModel, 'gemini-3.6-flash', '當 3.8-flash 發生 503 High Demand 時，應自動備援切換至 gemini-3.6-flash');
     assert.strictEqual(res.chords.length, 1, '備援模型應成功解析出 1 個和弦');
     console.log(`  ✔ 跨模型防塞車自動備援驗證通過：模擬 gemini-3.8-flash 發生 503 High Demand ➔ 自動秒切 [${res.usedModel}] 完成辨識`);
+
+    // 模擬多頁 PDF (第 1 頁 + 第 2 頁) 連續辨識：驗證第 2 頁遭遇 JSON 格式雜訊或 RPM 限流時能自動容錯並完成第 2 頁辨識
+    let page2Attempt = 0;
+    global.fetch = async (url) => {
+      page2Attempt++;
+      if (page2Attempt === 1) {
+        // 模擬第 2 頁第一次呼叫回傳截斷或無效 JSON，驗證備援迴圈能自動切換下一個模型完成第 2 頁
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            usageMetadata: { promptTokenCount: 100, candidatesTokenCount: 20, totalTokenCount: 120 },
+            candidates: [{ content: { parts: [{ text: 'INVALID_TRUNCATED_JSON_{' }] } }]
+          })
+        };
+      }
+      // 第二個備援模型回傳前後帶有額外說明文字的 JSON，驗證大括號萃取器與第 2 頁解析成功
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          usageMetadata: { promptTokenCount: 110, candidatesTokenCount: 60, totalTokenCount: 170 },
+          candidates: [{
+            content: {
+              parts: [
+                { thought: true, text: 'thinking trace...' },
+                {
+                  text: '以下是第 2 頁辨識結果：\n{"detectedSourceKey":null,"chords":[{"raw":"2m7","xPercent":22.4,"yPercent":18.6,"line":1},{"raw":"57","xPercent":54.1,"yPercent":18.6,"line":1}]}\n完成。'
+                }
+              ]
+            }
+          }]
+        })
+      };
+    };
+
+    const resPage2 = await SheetParser.recognizeSheetPage('data:image/jpeg;base64,BB==', {
+      fileName: 'mock_multipage_test.pdf',
+      pageNumber: 2,
+      forceRefresh: true,
+      apiKey: 'TEST_KEY_123',
+      model: 'gemini-3.6-flash'
+    });
+    assert.strictEqual(resPage2.chords.length, 2, '第 2 頁應透過備援與 JSON 萃取成功辨識出 2 個和弦');
+    assert.strictEqual(resPage2.chords[0].raw, '2m7');
+    assert.strictEqual(resPage2.chords[1].raw, '57');
+    console.log(`  ✔ 多頁 PDF 第 2 頁連續辨識容錯驗證通過：成功攔截格式異常並自動備援解析出第 2 頁共 ${resPage2.chords.length} 個和弦`);
+
     console.log('\n🎉 所有測試案例 100% 通過！');
   } finally {
     global.fetch = origFetch;
