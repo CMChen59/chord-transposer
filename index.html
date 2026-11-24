@@ -8,66 +8,63 @@
 </head>
 <body>
 
-  <!-- 頂部全域導覽與調性控制列 -->
+  <!-- 頂部全域導覽與調性控制列 (極簡緊湊版) -->
   <header class="app-header">
     <div class="header-inner">
       <div class="brand-title">
-        <span style="font-size: 1.9rem;">🎹</span>
-        <div>
-          <h1>智慧和弦轉調與組成音查詢工具</h1>
-          <div class="brand-subtitle">選取原調與目標調，即刻提供對應和弦、新調升降記號與和弦組成音對照</div>
-        </div>
+        <span style="font-size: 1.45rem;">🎹</span>
+        <h1>智慧和弦轉調與組成音查詢工具</h1>
       </div>
 
       <div class="global-controls">
         <!-- 原調選擇 -->
         <div class="control-group">
-          <label for="sourceKeySelect">原譜調性：</label>
+          <label for="sourceKeySelect">原調：</label>
           <select id="sourceKeySelect"></select>
         </div>
 
         <!-- 目標調選擇與半音微調 -->
         <div class="control-group">
-          <label for="targetKeySelect">目標調性：</label>
+          <label for="targetKeySelect">目標調：</label>
           <select id="targetKeySelect"></select>
-          <button type="button" id="btnSemitoneDown" class="btn" title="目標調降半音 (-1)">-1 半音</button>
-          <button type="button" id="btnSemitoneReset" class="btn" title="重置為原譜調性">原調</button>
-          <button type="button" id="btnSemitoneUp" class="btn" title="目標調升半音 (+1)">+1 半音</button>
+          <button type="button" id="btnSemitoneDown" class="btn" style="padding: 5px 9px;" title="目標調降半音 (-1)">-1</button>
+          <button type="button" id="btnSemitoneReset" class="btn" style="padding: 5px 9px;" title="重置為原譜調性">原調</button>
+          <button type="button" id="btnSemitoneUp" class="btn" style="padding: 5px 9px;" title="目標調升半音 (+1)">+1</button>
         </div>
 
         <!-- 三種顯示模式一鍵切換 -->
         <div class="mode-switcher" role="group" aria-label="和弦顯示模式切換">
-          <button type="button" class="mode-btn active" data-mode="english" title="日常看譜與電子琴螢幕顯示最直覺">🔤 英文和弦 (預設)</button>
+          <button type="button" class="mode-btn active" data-mode="english" title="日常看譜與電子琴螢幕顯示最直覺">🔤 英文和弦</button>
           <button type="button" class="mode-btn" data-mode="number" title="以固定調 1=C 簡譜數字顯示 (如 1m, 4m, 57)">🔢 固定調數字</button>
           <button type="button" class="mode-btn" data-mode="practice" title="同時顯示原譜級數與新調英文/數字，幫助記憶轉調規律">🎓 練功對照</button>
         </div>
 
         <!-- 琴音開關 -->
-        <button type="button" id="btnAudioToggle" class="btn btn-emerald">🔊 琴音試聽：開啟</button>
+        <button type="button" id="btnAudioToggle" class="btn btn-emerald">🔊 琴音：開</button>
       </div>
     </div>
   </header>
 
   <main class="main-container">
 
-    <!-- 共用橫幅：新調性升降記號 (黑鍵提示)、自然音階與小調導音提示 -->
+    <!-- 共用橫幅：單行緊湊新調性升降記號 (黑鍵提示) ＋ 可展開之音階詳情 -->
     <section id="keySignatureBanner" class="key-signature-banner" aria-label="新調性升降記號與音階資訊">
       <!-- 由 js/app.js 動態渲染 -->
     </section>
 
-    <!-- 檢視模式分頁切換列 (保留原本極簡查表需求 + 琴譜載入預覽 + 互動鋼琴工作台) -->
+    <!-- 檢視模式分頁切換列 -->
     <nav class="view-tabs-nav" aria-label="功能模式切換">
       <button type="button" class="view-tab-btn active" data-tab="tab-reference-table">
         <span>📊</span>
-        <span>模式一：調性對應和弦 ＆ 組成音總表 (直覺查表)</span>
+        <span>模式一：和弦＆組成音總表</span>
       </button>
       <button type="button" class="view-tab-btn" data-tab="tab-sheet-viewer">
         <span>📄</span>
-        <span>模式二：琴譜 PDF / JPG 載入與轉調 (琴譜預覽)</span>
+        <span>模式二：琴譜 PDF / JPG 轉調</span>
       </button>
       <button type="button" class="view-tab-btn" data-tab="tab-interactive-studio">
         <span>🎹</span>
-        <span>模式三：互動鋼琴鍵盤 ＆ 整首和弦工作台 (進階練習)</span>
+        <span>模式三：互動鋼琴＆工作台</span>
       </button>
     </nav>
 

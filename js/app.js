@@ -139,7 +139,8 @@ C CM7 | C7 | Em | bE | Dm | Em | Fm | Gsus4 | C`
     tagsVisible: true,
     tagStyle: 'red-box', // 'red-box' | 'clean-cover' | 'blue-box' | 'yellow-box'
     tagFontSize: 15,
-    inlinePianoVisible: true
+    inlinePianoVisible: true,
+    ksDetailsExpanded: false
   };
 
   // ============================================================================
@@ -314,11 +315,11 @@ C CM7 | C7 | Em | bE | Dm | Em | Fm | Gsus4 | C`
     const signedDiff = rawDiff > 6 ? rawDiff - 12 : rawDiff;
     const shiftText = signedDiff === 0
       ? '原調 (0 半音)'
-      : (signedDiff > 0 ? `升 +${signedDiff} 半音 (或降 ${signedDiff - 12})` : `降 ${signedDiff} 半音 (或升 +${signedDiff + 12})`);
+      : (signedDiff > 0 ? `+${signedDiff} 半音` : `${signedDiff} 半音`);
 
     let accListHTML = '';
     if (tgtDetails.accidentalCount === 0) {
-      accListHTML = `<span class="acc-pill">✨ 自然音階皆為白鍵，無固定升降記號</span>`;
+      accListHTML = `<span class="acc-pill">✨ 全白鍵 (無升降記號)</span>`;
     } else {
       accListHTML = tgtDetails.accidentalsEnglish.map((eng, idx) => {
         const num = tgtDetails.accidentalsFixedNumber[idx];
@@ -334,30 +335,37 @@ C CM7 | C7 | Em | bE | Dm | Em | Fm | Gsus4 | C`
     }).join('');
 
     const harmonicTipHTML = tgtDetails.harmonicMinorNote
-      ? `<div class="ks-harmonic-tip">💡 ${tgtDetails.harmonicMinorNote}</div>`
+      ? `<span class="ks-harmonic-tip" style="margin-top:0;">｜ 💡 ${tgtDetails.harmonicMinorNote}</span>`
       : '';
 
+    const srcShort = srcInfo.label.split(' ')[0];
+    const tgtShort = tgtDetails.keyLabel.split(' ')[0];
+
     els.ksBanner.innerHTML = `
-      <div>
-        <div class="ks-section-title">🎯 目標調性與轉調位移 (${srcInfo.label.split(' ')[0]} ➔ ${tgtDetails.keyLabel.split(' ')[0]})</div>
-        <div class="ks-main-key">
-          <span class="ks-key-name">${tgtDetails.keyLabel}</span>
-          <span class="ks-shift-badge">${shiftText}</span>
-        </div>
+      <div class="ks-compact-row">
+        <span>🎯 <strong>目標調：</strong><strong style="color:#60a5fa; font-size:1.05rem;">${tgtDetails.keyLabel}</strong> <span style="color:#94a3b8; font-size:0.82rem;">(${srcShort} ➔ ${tgtShort})</span></span>
+        <span class="ks-shift-badge">${shiftText}</span>
+        <span style="color:#334155;">｜</span>
+        <span>♯♭ <strong>新調黑鍵：</strong><span class="ks-acc-badge">${tgtDetails.badgeText}</span></span>
+        <div style="display:inline-flex; flex-wrap:wrap; gap:5px; align-items:center;">${accListHTML}</div>
+        <button type="button" id="btnToggleKsDetails" class="btn" style="padding:3px 9px; font-size:0.78rem; margin-left:auto;">
+          ${state.ksDetailsExpanded ? 'ℹ️ 隱藏音階 ▴' : 'ℹ️ 音階詳情 ▾'}
+        </button>
       </div>
-
-      <div>
-        <div class="ks-section-title">♯♭ 新調性升降記號 (需要按的黑鍵提示)</div>
-        <div><span class="ks-acc-badge">${tgtDetails.badgeText}</span></div>
-        <div class="ks-acc-list">${accListHTML}</div>
-      </div>
-
-      <div>
-        <div class="ks-section-title">🎼 新調自然音階 (英文音名 / 固定調簡譜數字)</div>
-        <div class="ks-scale-list">${scaleHTML}</div>
+      <div id="ksScaleDetailsDrawer" class="ks-details-drawer" style="display: ${state.ksDetailsExpanded ? 'flex' : 'none'};">
+        <span style="color:#94a3b8; font-weight:700;">🎼 自然音階：</span>
+        <div style="display:inline-flex; flex-wrap:wrap; gap:5px; align-items:center;">${scaleHTML}</div>
         ${harmonicTipHTML}
       </div>
     `;
+
+    const btnToggleKs = document.getElementById('btnToggleKsDetails');
+    if (btnToggleKs) {
+      btnToggleKs.addEventListener('click', () => {
+        state.ksDetailsExpanded = !state.ksDetailsExpanded;
+        renderKeySignatureBanner();
+      });
+    }
   }
 
   // ============================================================================
@@ -1135,7 +1143,7 @@ C CM7 | C7 | Em | bE | Dm | Em | Fm | Gsus4 | C`
     // 音效開關
     els.btnAudioToggle.addEventListener('click', () => {
       state.audioEnabled = !state.audioEnabled;
-      els.btnAudioToggle.textContent = state.audioEnabled ? '🔊 琴音試聽：開啟' : '🔇 琴音試聽：靜音';
+      els.btnAudioToggle.textContent = state.audioEnabled ? '🔊 琴音：開' : '🔇 琴音：關';
       els.btnAudioToggle.className = state.audioEnabled ? 'btn btn-emerald' : 'btn';
     });
 
