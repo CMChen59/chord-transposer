@@ -72,46 +72,27 @@
     <!-- 分頁 1 (預設)：原調 ➔ 目標調 對應和弦與組成音總表 -->
     <!-- ====================================================================== -->
     <div id="tab-reference-table" class="tab-pane active">
-      <section class="card">
-        <div class="card-header">
+      <section class="card" style="padding: 16px 18px;">
+        <div class="card-header" style="margin-bottom: 12px; padding-bottom: 10px;">
           <div class="card-title">
             <span>📊</span>
             <span id="refTableTitle">原調 ➔ 目標調 常用對應和弦與組成音對照總表</span>
           </div>
-          <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-            <button type="button" class="btn btn-amber quick-pair-btn" data-src="Am" data-tgt="Cm">⚡ 常用：Am 轉女調 Cm</button>
-            <button type="button" class="btn btn-amber quick-pair-btn" data-src="Am" data-tgt="Fm">⚡ 常用：Am 轉男調 Fm</button>
-            <button type="button" class="btn btn-emerald quick-pair-btn" data-src="C" data-tgt="D">⚡ 常用：C 轉 D (+2)</button>
-            <button type="button" class="btn btn-emerald quick-pair-btn" data-src="C" data-tgt="Eb">⚡ 常用：C 轉 Eb (bE)</button>
+          <!-- 精簡後之二選一篩選切換直接整合於標題列右側，省去獨立工具列高度 -->
+          <div class="degree-filter-btns" id="degreeFilterBtns">
+            <button type="button" class="btn btn-primary" data-filter="common">⭐ 常用和弦 (精選 16 個)</button>
+            <button type="button" class="btn" data-filter="all">📋 全部和弦 (完整 28 個)</button>
           </div>
         </div>
 
         <!-- 單一特殊和弦即時換算列 (若遇到表上沒有的複雜和弦可隨時輸入) -->
-        <div class="quick-convert-bar" style="margin-bottom: 16px;">
+        <div class="quick-convert-bar" style="margin-bottom: 12px; padding: 10px 14px;">
           <label for="quickSingleChordInput" style="font-weight: 800; color: #6ee7b7;">
             🔍 特殊和弦快速換算：
           </label>
-          <input type="text" id="quickSingleChordInput" value="37-9+5" placeholder="輸入任意和弦，如 37-9+5, 5m6/7b, bE..." />
+          <input type="text" id="quickSingleChordInput" value="37-9+5" style="width: 180px; padding: 5px 10px;" placeholder="如 37-9+5, 5m6/7b, bE..." />
           <div id="quickSingleChordResult" class="quick-convert-result">
             <!-- 由 js/app.js 即時渲染 -->
-          </div>
-        </div>
-
-        <!-- 級數分類篩選列 -->
-        <div class="filter-toolbar" style="margin-bottom: 14px;">
-          <div class="degree-filter-btns" id="degreeFilterBtns">
-            <button type="button" class="btn btn-primary" data-filter="common">⭐ 樂譜最常用和弦 (精選 16 個)</button>
-            <button type="button" class="btn" data-filter="all">📋 全部 1~7 級完整家族 (28 個)</button>
-            <button type="button" class="btn" data-filter="1">1 級 (Do)</button>
-            <button type="button" class="btn" data-filter="2">2 級 (Re)</button>
-            <button type="button" class="btn" data-filter="3">3 級 (Mi)</button>
-            <button type="button" class="btn" data-filter="4">4 級 (Fa)</button>
-            <button type="button" class="btn" data-filter="5">5 級 (Sol)</button>
-            <button type="button" class="btn" data-filter="6">6 級 (La)</button>
-            <button type="button" class="btn" data-filter="7">7 級 / 降7 (Si)</button>
-          </div>
-          <div style="font-size: 0.82rem; color: #94a3b8;">
-            💡 點擊任一列的「🔊 試聽」或「🎹 看琴鍵」可聽和弦聲音或查看鋼琴按法
           </div>
         </div>
 
