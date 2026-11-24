@@ -963,8 +963,10 @@
     let lastError = null;
     let usedModel = model;
     const totalKeys = allKeys.length;
-    // 建立模型自動備援順序：優先使用目前選取之模型，若遭遇 503 High Demand / Failed to fetch / 逾時 / 額度耗盡，自動無縫切換至其他實測暢通之視覺模型
-    const candidateModels = [model, ...AVAILABLE_VISION_MODELS.filter(m => m !== model)];
+    // 建立模型自動備援順序：優先使用目前選取之模型，若遭遇 503 High Demand / Failed to fetch / 逾時，
+    // 依序切換備援模型，且若尾端 gemini-3.8-flash 亦塞車，最後自動迴圈切回主力 gemini-3.6-flash 再試一輪以度過 10 秒尖峰
+    const uniqueModels = [model, ...AVAILABLE_VISION_MODELS.filter(m => m !== model)];
+    const candidateModels = [...uniqueModels, DEFAULT_GEMINI_MODEL];
 
     outerModelLoop:
     for (let mIdx = 0; mIdx < candidateModels.length; mIdx++) {
@@ -1051,17 +1053,31 @@
             continue;
           }
 
-          // 情況 B：當前模型伺服器塞車、斷線 (Failed to fetch / 503 / Timeout / 格式或座標異常) 或停用 ➔ 直接跳出內層迴圈，秒切下一個暢通備援模型！
+          // 情況 B：當前模型伺服器塞車、斷線 (Failed to fetch / 503 / Timeout / 格式或座標異常) 或停用 ➔ 切換下一個暢通備援模型！
           if (isHighDemandOrUnavailable && mIdx < candidateModels.length - 1) {
             const nextModel = candidateModels[mIdx + 1];
+            const waitMs = mIdx >= uniqueModels.length - 1 ? 2000 : 400;
             if (typeof options.onRetry === 'function') {
               options.onRetry(
-                1, 1, 1,
-                `模型 ${currentModel} 連線繁忙或座標異常，正自動切換至暢通備援模型 ${nextModel}`
+                1, 1, Math.ceil(waitMs / 1000),
+                `模型 ${currentModel} 尖峰塞車中，正自動切換至 ${nextModel} 繼續辨識`
               );
             }
-            await new Promise(resolve => setTimeout(resolve, 400));
+            await new Promise(resolve => setTimeout(resolve, waitMs));
             break; // 跳至外層 candidateModels 的下一個模型
+          }
+
+          // 若已到最後一輪模型仍遇 503 塞車，且尚有其他組 API Key 可試，切換下一組 Key 再試一次
+          if (isHighDemandOrUnavailable && keyAttempt < totalKeys - 1) {
+            const nextIndex = (currentKeyIndex + 1) % totalKeys;
+            if (typeof options.onRetry === 'function') {
+              options.onRetry(
+                1, 1, 2,
+                `伺服器尖峰塞車，正切換第 ${nextIndex + 1} 組 Key 重試`
+              );
+            }
+            await new Promise(resolve => setTimeout(resolve, 1500));
+            continue;
           }
 
           // 情況 C：所有 Key 在此模型的額度皆已滿（或觸發 RPM 限流），但還有其他備援模型可試 ➔ 自動切換至下一個備援模型
