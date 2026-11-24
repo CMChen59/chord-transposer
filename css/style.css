@@ -165,23 +165,25 @@ select:focus, input[type="text"]:focus, textarea:focus {
 }
 
 .btn-amber {
-  background: rgba(245, 158, 11, 0.15);
-  border-color: var(--accent-amber);
-  color: #fcd34d;
+  background: #1e293b;
+  border-color: rgba(245, 158, 11, 0.45);
+  color: #fde68a;
 }
 
 .btn-amber:hover {
-  background: rgba(245, 158, 11, 0.3);
+  background: rgba(245, 158, 11, 0.16);
+  border-color: var(--accent-amber);
 }
 
 .btn-emerald {
-  background: rgba(16, 185, 129, 0.15);
-  border-color: var(--accent-emerald);
-  color: #6ee7b7;
+  background: #1e293b;
+  border-color: rgba(16, 185, 129, 0.45);
+  color: #a7f3d0;
 }
 
 .btn-emerald:hover {
-  background: rgba(16, 185, 129, 0.3);
+  background: rgba(16, 185, 129, 0.16);
+  border-color: var(--accent-emerald);
 }
 
 .btn-danger {
@@ -307,9 +309,9 @@ select:focus, input[type="text"]:focus, textarea:focus {
   flex-wrap: wrap;
   align-items: center;
   gap: 12px;
-  background: linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(15, 23, 42, 0.9) 100%);
-  border: 1px solid rgba(16, 185, 129, 0.4);
-  padding: 14px 18px;
+  background: var(--bg-input);
+  border: 1px solid var(--border-color);
+  padding: 12px 16px;
   border-radius: var(--radius-md);
 }
 
@@ -702,11 +704,11 @@ select:focus, input[type="text"]:focus, textarea:focus {
 }
 
 .sheet-selected-inspector {
-  background: linear-gradient(135deg, rgba(30, 41, 59, 0.96) 0%, rgba(15, 23, 42, 0.98) 100%);
-  border: 1px solid #60a5fa;
-  border-left: 4px solid #3b82f6;
+  background: var(--bg-input);
+  border: 1px solid var(--border-color);
+  border-left: 3px solid #3b82f6;
   border-radius: var(--radius-sm);
-  padding: 12px 14px;
+  padding: 10px 14px;
 }
 
 .inspector-top-row {
@@ -736,11 +738,11 @@ select:focus, input[type="text"]:focus, textarea:focus {
   cursor: crosshair;
 }
 
-/* 新調性升降記號與音階橫幅面板 (單行緊湊版 + 可展開音階詳情) */
+/* 新調性升降記號與音階橫幅面板 (單行緊湊版 + 可展開音階詳情 - 視覺降噪低彩度版) */
 .key-signature-banner {
-  background: linear-gradient(135deg, rgba(30, 41, 59, 0.95) 0%, rgba(15, 23, 42, 0.95) 100%);
-  border: 1px solid #3b82f6;
-  border-left: 4px solid #3b82f6;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-left: 3px solid #3b82f6;
   border-radius: var(--radius-md);
   padding: 9px 14px;
   box-shadow: var(--shadow-card);
@@ -784,29 +786,29 @@ select:focus, input[type="text"]:focus, textarea:focus {
 }
 
 .ks-key-name {
-  font-size: 1.35rem;
+  font-size: 1.25rem;
   font-weight: 800;
   color: #60a5fa;
 }
 
 .ks-shift-badge {
-  background: rgba(139, 92, 246, 0.2);
-  border: 1px solid var(--accent-purple);
-  color: #c4b5fd;
-  font-size: 0.8rem;
+  background: #162032;
+  border: 1px solid #334155;
+  color: #cbd5e1;
+  font-size: 0.78rem;
   font-weight: 700;
-  padding: 3px 9px;
-  border-radius: 999px;
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
 }
 
 .ks-acc-badge {
-  background: rgba(245, 158, 11, 0.2);
-  border: 1px solid var(--accent-amber);
-  color: #fde68a;
-  font-size: 0.85rem;
-  font-weight: 800;
-  padding: 3px 10px;
-  border-radius: 999px;
+  background: #162032;
+  border: 1px solid #334155;
+  color: #e2e8f0;
+  font-size: 0.8rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
 }
 
 .ks-acc-list {

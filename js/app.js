@@ -31,12 +31,12 @@
     // 3 級 (Mi)
     { degreeRaw: '3m',      group: '3', isCommon: true,  roleNote: '三級小和弦' },
     { degreeRaw: '3m7',     group: '3', isCommon: false, roleNote: '三級小七和弦' },
-    { degreeRaw: '37',      group: '3', isCommon: true,  roleNote: '⭐ 小調五級屬七導音和弦 (極常用)' },
-    { degreeRaw: '37-9+5',  group: '3', isCommon: true,  roleNote: '⭐ 小調屬七降九升五 (演歌/國台語常用)' },
+    { degreeRaw: '37',      group: '3', isCommon: true,  roleNote: '小調五級屬七導音和弦 (極常用)' },
+    { degreeRaw: '37-9+5',  group: '3', isCommon: true,  roleNote: '小調屬七降九升五 (演歌/國台語常用)' },
 
     // 4 級 (Fa)
     { degreeRaw: '4',       group: '4', isCommon: true,  roleNote: '四級大三和弦 (下屬和弦)' },
-    { degreeRaw: '4M7',     group: '4', isCommon: true,  roleNote: '四級大七和弦 (《償還》間奏常用)' },
+    { degreeRaw: '4M7',     group: '4', isCommon: true,  roleNote: '四級大七和弦 (抒情間奏常用)' },
     { degreeRaw: '4m',      group: '4', isCommon: true,  roleNote: '四級小和弦 (抒情歌借用和弦)' },
     { degreeRaw: '4m6',     group: '4', isCommon: false, roleNote: '四級小六和弦' },
 
@@ -44,10 +44,10 @@
     { degreeRaw: '5',       group: '5', isCommon: true,  roleNote: '五級大三屬和弦' },
     { degreeRaw: '57',      group: '5', isCommon: true,  roleNote: '五級屬七和弦 (返回 1 級)' },
     { degreeRaw: '5sus4',   group: '5', isCommon: true,  roleNote: '五級掛四和弦 (解決至 5 或 57)' },
-    { degreeRaw: '5m6/7b',  group: '5', isCommon: false, roleNote: '五級小六轉位和弦 (《償還》過門)' },
+    { degreeRaw: '5m6/7b',  group: '5', isCommon: false, roleNote: '五級小六轉位和弦 (過門常用)' },
 
     // 6 級 (La)
-    { degreeRaw: '6m',      group: '6', isCommon: true,  roleNote: '⭐ 小調主和弦 / 大調六級關係小和弦' },
+    { degreeRaw: '6m',      group: '6', isCommon: true,  roleNote: '小調主和弦 / 大調六級關係小和弦' },
     { degreeRaw: '6m7',     group: '6', isCommon: false, roleNote: '六級小七和弦' },
     { degreeRaw: '6',       group: '6', isCommon: false, roleNote: '六級大三和弦 (經過和弦)' },
     { degreeRaw: '67',      group: '6', isCommon: true,  roleNote: '六級副屬七 (導向 2m)' },
@@ -319,12 +319,12 @@ C CM7 | C7 | Em | bE | Dm | Em | Fm | Gsus4 | C`
 
     let accListHTML = '';
     if (tgtDetails.accidentalCount === 0) {
-      accListHTML = `<span class="acc-pill">✨ 全白鍵 (無升降記號)</span>`;
+      accListHTML = `<span class="acc-pill">全白鍵 (無升降記號)</span>`;
     } else {
       accListHTML = tgtDetails.accidentalsEnglish.map((eng, idx) => {
         const num = tgtDetails.accidentalsFixedNumber[idx];
         const sol = tgtDetails.accidentalsSolfege[idx];
-        return `<span class="acc-pill" title="${sol}">🎹 <strong>${eng}</strong> <span class="num-tag">(${num})</span></span>`;
+        return `<span class="acc-pill" title="${sol}"><strong>${eng}</strong> <span class="num-tag">(${num})</span></span>`;
       }).join('');
     }
 
@@ -335,7 +335,7 @@ C CM7 | C7 | Em | bE | Dm | Em | Fm | Gsus4 | C`
     }).join('');
 
     const harmonicTipHTML = tgtDetails.harmonicMinorNote
-      ? `<span class="ks-harmonic-tip" style="margin-top:0;">｜ 💡 ${tgtDetails.harmonicMinorNote}</span>`
+      ? `<span class="ks-harmonic-tip" style="margin-top:0;">｜ ${tgtDetails.harmonicMinorNote}</span>`
       : '';
 
     const srcShort = srcInfo.label.split(' ')[0];
@@ -343,17 +343,17 @@ C CM7 | C7 | Em | bE | Dm | Em | Fm | Gsus4 | C`
 
     els.ksBanner.innerHTML = `
       <div class="ks-compact-row">
-        <span>🎯 <strong>目標調：</strong><strong style="color:#60a5fa; font-size:1.05rem;">${tgtDetails.keyLabel}</strong> <span style="color:#94a3b8; font-size:0.82rem;">(${srcShort} ➔ ${tgtShort})</span></span>
+        <span><strong>目標調：</strong><strong style="color:#60a5fa; font-size:1.05rem;">${tgtDetails.keyLabel}</strong> <span style="color:#94a3b8; font-size:0.82rem;">(${srcShort} ➔ ${tgtShort})</span></span>
         <span class="ks-shift-badge">${shiftText}</span>
         <span style="color:#334155;">｜</span>
-        <span>♯♭ <strong>新調黑鍵：</strong><span class="ks-acc-badge">${tgtDetails.badgeText}</span></span>
+        <span><strong>新調黑鍵：</strong><span class="ks-acc-badge">${tgtDetails.badgeText}</span></span>
         <div style="display:inline-flex; flex-wrap:wrap; gap:5px; align-items:center;">${accListHTML}</div>
         <button type="button" id="btnToggleKsDetails" class="btn" style="padding:3px 9px; font-size:0.78rem; margin-left:auto;">
-          ${state.ksDetailsExpanded ? 'ℹ️ 隱藏音階 ▴' : 'ℹ️ 音階詳情 ▾'}
+          ${state.ksDetailsExpanded ? '隱藏音階 ▴' : '音階詳情 ▾'}
         </button>
       </div>
       <div id="ksScaleDetailsDrawer" class="ks-details-drawer" style="display: ${state.ksDetailsExpanded ? 'flex' : 'none'};">
-        <span style="color:#94a3b8; font-weight:700;">🎼 自然音階：</span>
+        <span style="color:#94a3b8; font-weight:700;">自然音階：</span>
         <div style="display:inline-flex; flex-wrap:wrap; gap:5px; align-items:center;">${scaleHTML}</div>
         ${harmonicTipHTML}
       </div>
@@ -392,8 +392,8 @@ C CM7 | C7 | Em | bE | Dm | Em | Fm | Gsus4 | C`
       <span>原調: <strong style="color:#cbd5e1;">${raw} (${srcEng})</strong></span>
       <span>➔ 目標調: <strong style="color:#34d399; font-size:1.2rem;">${tr.englishChord}</strong> <span style="color:#fbbf24; font-weight:700;">(數字: ${tr.fixedNumberChord})</span></span>
       <span>組成音: <strong style="color:#60a5fa;">${tr.notes.english.join(' - ')}</strong> <span style="color:#fbbf24;">(${tr.notes.fixedNumber.join(' - ')})</span></span>
-      <button type="button" class="btn btn-primary" id="btnQuickSinglePlay" style="padding:4px 10px;">🔊 試聽</button>
-      <button type="button" class="btn" id="btnQuickSingleJumpPiano" style="padding:4px 10px;">🎹 看鋼琴鍵盤</button>
+      <button type="button" class="btn" id="btnQuickSinglePlay" style="padding:4px 10px;">試聽</button>
+      <button type="button" class="btn" id="btnQuickSingleJumpPiano" style="padding:4px 10px;">看琴鍵</button>
     `;
 
     const btnPlay = document.getElementById('btnQuickSinglePlay');
@@ -447,8 +447,8 @@ C CM7 | C7 | Em | bE | Dm | Em | Fm | Gsus4 | C`
           <td><span class="notes-num-pill">${numNotes}</span></td>
           <td style="color:#94a3b8; font-size:0.84rem;">${item.roleNote}</td>
           <td style="white-space:nowrap;">
-            <button type="button" class="btn btn-row-play" data-deg="${item.degreeRaw}" style="padding:4px 8px; font-size:0.78rem;">🔊 試聽</button>
-            <button type="button" class="btn btn-row-piano" data-deg="${item.degreeRaw}" style="padding:4px 8px; font-size:0.78rem;">🎹 看琴鍵</button>
+            <button type="button" class="btn btn-row-play" data-deg="${item.degreeRaw}" style="padding:4px 8px; font-size:0.78rem;">試聽</button>
+            <button type="button" class="btn btn-row-piano" data-deg="${item.degreeRaw}" style="padding:4px 8px; font-size:0.78rem;">琴鍵</button>
           </td>
         </tr>`;
     }).join('');
@@ -764,13 +764,13 @@ C CM7 | C7 | Em | bE | Dm | Em | Fm | Gsus4 | C`
       els.geminiModelSelect.value = model;
     }
     if (pool.total > 1) {
-      els.apiKeyStatusBadge.textContent = `🔑 已就緒 ${pool.total} 組 API Key (${model} 智慧輪替)`;
+      els.apiKeyStatusBadge.textContent = `已就緒 ${pool.total} 組 API Key (${model})`;
       els.apiKeyStatusBadge.className = 'sheet-status-badge status-success';
     } else if (pool.total === 1) {
-      els.apiKeyStatusBadge.textContent = `🔑 API Key 已就緒 (${model})`;
+      els.apiKeyStatusBadge.textContent = `API Key 已就緒 (${model})`;
       els.apiKeyStatusBadge.className = 'sheet-status-badge status-success';
     } else {
-      els.apiKeyStatusBadge.textContent = '🔑 未設定 API Key (內建範例譜可 0 Token 免費辨識)';
+      els.apiKeyStatusBadge.textContent = '未設定 API Key (內建範例可免金鑰體驗)';
       els.apiKeyStatusBadge.className = 'sheet-status-badge status-info';
     }
     renderTokenUsageStatsBar();
@@ -1222,13 +1222,13 @@ C CM7 | C7 | Em | bE | Dm | Em | Fm | Gsus4 | C`
           if (els.btnExportAllPdf) els.btnExportAllPdf.disabled = false;
           if (els.btnExportProjectJson) els.btnExportProjectJson.disabled = false;
 
-          // 載入琴譜後，自動收合大塊上傳區以最大化看譜空間，並顯示主工具列「📂 更換琴譜 ▾」按鈕
+          // 載入琴譜後，自動收合大塊上傳區以最大化看譜空間，並顯示主工具列「更換琴譜 ▾」按鈕
           if (els.sheetUploadGrid) {
             els.sheetUploadGrid.style.display = 'none';
           }
           if (els.btnToggleUploadPanel) {
             els.btnToggleUploadPanel.style.display = 'inline-flex';
-            els.btnToggleUploadPanel.textContent = '📂 更換琴譜 ▾';
+            els.btnToggleUploadPanel.textContent = '更換琴譜 ▾';
           }
 
           // 自動檢查整份琴譜每一頁的快取，確保未翻到的第 2 頁也能在匯出全曲 PDF 時一併帶入已快取的和弦
@@ -1247,11 +1247,11 @@ C CM7 | C7 | Em | bE | Dm | Em | Fm | Gsus4 | C`
           if (pageObj.chords && pageObj.chords.length > 0) {
             const isBuiltin = window.SheetParser && SheetParser.hasBuiltInSampleCache(vState.fileName, pageObj.pageNumber);
             els.aiRecognizeSummary.textContent = isBuiltin
-              ? `⚡ 已自動套用內建範例精準和弦座標 (第 ${pageObj.pageNumber} 頁共 ${pageObj.chords.length} 個和弦，0 Token)`
-              : `✅ 第 ${pageObj.pageNumber} 頁已載入 ${pageObj.chords.length} 個轉調和弦標籤 (0 Token 快取)`;
+              ? `已套用範例和弦座標 (第 ${pageObj.pageNumber} 頁共 ${pageObj.chords.length} 個和弦)`
+              : `第 ${pageObj.pageNumber} 頁已載入 ${pageObj.chords.length} 個和弦標籤 (快取)`;
             els.aiRecognizeSummary.style.color = '#6ee7b7';
           } else {
-            els.aiRecognizeSummary.textContent = `第 ${pageObj.pageNumber} / ${totalPages} 頁已就緒，請點擊「🤖 智慧辨識全曲所有頁面」`;
+            els.aiRecognizeSummary.textContent = `第 ${pageObj.pageNumber} / ${totalPages} 頁已就緒，可點擊「AI 辨識全曲」`;
             els.aiRecognizeSummary.style.color = '#94a3b8';
           }
 
@@ -1265,19 +1265,19 @@ C CM7 | C7 | Em | bE | Dm | Em | Fm | Gsus4 | C`
         console.error('更新 API Key 狀態列時發生錯誤:', err);
       }
 
-      // 綁定「📂 更換琴譜 ▾」與「🛠️ 標籤微調 ▾」抽屜開關
+      // 綁定「更換琴譜 ▾」與「標籤微調 ▾」抽屜開關
       if (els.btnToggleUploadPanel && els.sheetUploadGrid) {
         els.btnToggleUploadPanel.addEventListener('click', () => {
           const isHidden = els.sheetUploadGrid.style.display === 'none';
           els.sheetUploadGrid.style.display = isHidden ? 'grid' : 'none';
-          els.btnToggleUploadPanel.textContent = isHidden ? '📂 收合上傳區 ▴' : '📂 更換琴譜 ▾';
+          els.btnToggleUploadPanel.textContent = isHidden ? '收合上傳區 ▴' : '更換琴譜 ▾';
         });
       }
       if (els.btnToggleTagToolsDrawer && els.tagToolsDrawer) {
         els.btnToggleTagToolsDrawer.addEventListener('click', () => {
           const isHidden = els.tagToolsDrawer.style.display === 'none';
           els.tagToolsDrawer.style.display = isHidden ? 'block' : 'none';
-          els.btnToggleTagToolsDrawer.textContent = isHidden ? '🛠️ 標籤微調 ▴' : '🛠️ 標籤微調 ▾';
+          els.btnToggleTagToolsDrawer.textContent = isHidden ? '標籤微調 ▴' : '標籤微調 ▾';
         });
       }
 
@@ -1299,7 +1299,7 @@ C CM7 | C7 | Em | bE | Dm | Em | Fm | Gsus4 | C`
         els.btnToggleApiKeyBox.addEventListener('click', () => {
           const isHidden = els.apiKeyConfigBox.style.display === 'none';
           els.apiKeyConfigBox.style.display = isHidden ? 'block' : 'none';
-          els.btnToggleApiKeyBox.textContent = isHidden ? '⚙️ API 設定 ▴' : '⚙️ API 設定 ▾';
+          els.btnToggleApiKeyBox.textContent = isHidden ? 'API 設定 ▴' : 'API 設定 ▾';
           if (isHidden && els.geminiApiKeyInput && window.SheetParser) {
             els.geminiApiKeyInput.value = SheetParser.getRawApiKeysText ? SheetParser.getRawApiKeysText() : SheetParser.getApiKey();
           }
@@ -1314,7 +1314,7 @@ C CM7 | C7 | Em | bE | Dm | Em | Fm | Gsus4 | C`
           updateApiKeyStatusUI();
           els.apiKeyConfigBox.style.display = 'none';
           if (els.btnToggleApiKeyBox) {
-            els.btnToggleApiKeyBox.textContent = '⚙️ API 設定 ▾';
+            els.btnToggleApiKeyBox.textContent = 'API 設定 ▾';
           }
         });
       }
@@ -1357,8 +1357,8 @@ C CM7 | C7 | Em | bE | Dm | Em | Fm | Gsus4 | C`
         els.btnToggleAddChordMode.addEventListener('click', () => {
           state.addChordOnSheetMode = !state.addChordOnSheetMode;
           els.btnToggleAddChordMode.textContent = state.addChordOnSheetMode
-            ? '➕ 點譜新增和弦：開 (點譜面新增)'
-            : '➕ 點譜新增和弦：關';
+            ? '點譜新增和弦：開 (點譜面新增)'
+            : '點譜新增和弦：關';
           els.btnToggleAddChordMode.className = state.addChordOnSheetMode ? 'btn btn-amber' : 'btn';
           renderSheetOverlayAndChordsBar();
         });
@@ -1408,8 +1408,8 @@ C CM7 | C7 | Em | bE | Dm | Em | Fm | Gsus4 | C`
         els.btnToggleTagsVisible.addEventListener('click', () => {
           state.tagsVisible = !state.tagsVisible;
           els.btnToggleTagsVisible.textContent = state.tagsVisible
-            ? '👁️ 標籤：顯示中'
-            : '🙈 標籤：已隱藏';
+            ? '標籤：顯示中'
+            : '標籤：已隱藏';
           els.btnToggleTagsVisible.className = state.tagsVisible ? 'btn btn-emerald' : 'btn';
           renderSheetOverlayAndChordsBar();
         });

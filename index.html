@@ -34,9 +34,9 @@
 
         <!-- 三種顯示模式一鍵切換 -->
         <div class="mode-switcher" role="group" aria-label="和弦顯示模式切換">
-          <button type="button" class="mode-btn active" data-mode="english" title="日常看譜與電子琴螢幕顯示最直覺">🔤 英文和弦</button>
-          <button type="button" class="mode-btn" data-mode="number" title="以固定調 1=C 簡譜數字顯示 (如 1m, 4m, 57)">🔢 固定調數字</button>
-          <button type="button" class="mode-btn" data-mode="practice" title="同時顯示原譜級數與新調英文/數字，幫助記憶轉調規律">🎓 練功對照</button>
+          <button type="button" class="mode-btn active" data-mode="english" title="日常看譜與電子琴螢幕顯示最直覺">英文和弦</button>
+          <button type="button" class="mode-btn" data-mode="number" title="以固定調 1=C 簡譜數字顯示 (如 1m, 4m, 57)">固定調數字</button>
+          <button type="button" class="mode-btn" data-mode="practice" title="同時顯示原譜級數與新調英文/數字，幫助記憶轉調規律">練功對照</button>
         </div>
 
         <!-- 琴音開關 -->
@@ -55,15 +55,12 @@
     <!-- 檢視模式分頁切換列 -->
     <nav class="view-tabs-nav" aria-label="功能模式切換">
       <button type="button" class="view-tab-btn active" data-tab="tab-reference-table">
-        <span>📊</span>
         <span>模式一：和弦＆組成音總表</span>
       </button>
       <button type="button" class="view-tab-btn" data-tab="tab-sheet-viewer">
-        <span>📄</span>
         <span>模式二：琴譜 PDF / JPG 轉調</span>
       </button>
       <button type="button" class="view-tab-btn" data-tab="tab-interactive-studio">
-        <span>🎹</span>
         <span>模式三：互動鋼琴＆工作台</span>
       </button>
     </nav>
@@ -75,20 +72,19 @@
       <section class="card" style="padding: 16px 18px;">
         <div class="card-header" style="margin-bottom: 12px; padding-bottom: 10px;">
           <div class="card-title">
-            <span>📊</span>
             <span id="refTableTitle">原調 ➔ 目標調 常用對應和弦與組成音對照總表</span>
           </div>
           <!-- 精簡後之二選一篩選切換直接整合於標題列右側，省去獨立工具列高度 -->
           <div class="degree-filter-btns" id="degreeFilterBtns">
-            <button type="button" class="btn btn-primary" data-filter="common">⭐ 常用和弦 (精選 16 個)</button>
-            <button type="button" class="btn" data-filter="all">📋 全部和弦 (完整 28 個)</button>
+            <button type="button" class="btn btn-primary" data-filter="common">常用和弦 (精選 16 個)</button>
+            <button type="button" class="btn" data-filter="all">全部和弦 (完整 28 個)</button>
           </div>
         </div>
 
         <!-- 單一特殊和弦即時換算列 (若遇到表上沒有的複雜和弦可隨時輸入) -->
         <div class="quick-convert-bar" style="margin-bottom: 12px; padding: 10px 14px;">
-          <label for="quickSingleChordInput" style="font-weight: 800; color: #6ee7b7;">
-            🔍 特殊和弦快速換算：
+          <label for="quickSingleChordInput" style="font-weight: 800; color: #93c5fd;">
+            特殊和弦快速換算：
           </label>
           <input type="text" id="quickSingleChordInput" value="37-9+5" style="width: 180px; padding: 5px 10px;" placeholder="如 37-9+5, 5m6/7b, bE..." />
           <div id="quickSingleChordResult" class="quick-convert-result">
@@ -143,13 +139,13 @@
           </label>
 
           <div class="sample-loader-box">
-            <div style="font-size: 0.8rem; font-weight: 700; color: #94a3b8;">⚡ 免選檔！直接體驗內建範例：</div>
+            <div style="font-size: 0.8rem; font-weight: 700; color: #94a3b8;">免選檔快速載入內建範例：</div>
             <div style="display: flex; flex-wrap: wrap; gap: 8px;">
-              <button type="button" id="btnLoadSamplePdf" class="btn btn-amber">
-                📑 範例 1：《償還_Am.pdf》(2頁)
+              <button type="button" id="btnLoadSamplePdf" class="btn">
+                範例 1：《償還_Am.pdf》(2頁)
               </button>
-              <button type="button" id="btnLoadSampleJpg" class="btn btn-emerald">
-                🖼️ 範例 2：《川の流れのように_C.jpg》
+              <button type="button" id="btnLoadSampleJpg" class="btn">
+                範例 2：《川の流れのように_C.jpg》
               </button>
             </div>
           </div>
@@ -160,13 +156,13 @@
           <!-- 左區：換譜 + AI 辨識 -->
           <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
             <button type="button" id="btnToggleUploadPanel" class="btn" style="display: none;" title="展開或收合檔案上傳與範例選擇區">
-              📂 更換琴譜 ▾
+              更換琴譜 ▾
             </button>
             <button type="button" id="btnRunAiRecognize" class="btn btn-primary" disabled>
-              🤖 AI 辨識全曲
+              AI 辨識全曲
             </button>
             <button type="button" id="btnCancelAiRecognize" class="btn btn-danger" style="display: none;" title="立即強制停止當前辨識">
-              🛑 取消
+              取消
             </button>
           </div>
 
@@ -178,26 +174,26 @@
             <div id="sheetPageQuickBtns" style="display: flex; gap: 4px;"></div>
 
             <span style="color: #334155; margin: 0 2px;">｜</span>
-            <button type="button" id="btnSheetZoomOut" class="btn" style="padding: 5px 8px;" title="縮小畫面 (-15%)">➖</button>
-            <button type="button" id="btnSheetZoomReset" class="btn" style="padding: 5px 8px;" title="重置為 100% 適應寬度">
+            <button type="button" id="btnSheetZoomOut" class="btn" style="padding: 5px 9px;" title="縮小畫面 (-15%)">−</button>
+            <button type="button" id="btnSheetZoomReset" class="btn" style="padding: 5px 9px;" title="重置為 100% 適應寬度">
               <span id="sheetZoomLabel">100%</span>
             </button>
-            <button type="button" id="btnSheetZoomIn" class="btn" style="padding: 5px 8px;" title="放大畫面 (+15%)">➕</button>
+            <button type="button" id="btnSheetZoomIn" class="btn" style="padding: 5px 9px;" title="放大畫面 (+15%)">＋</button>
           </div>
 
           <!-- 右區：匯出 PDF/JPG + 標籤微調抽屜 + API 設定抽屜 -->
           <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
             <button type="button" id="btnExportAllPdf" class="btn btn-primary" disabled title="將全曲所有頁面（含轉調和弦標籤）打包另存為新 PDF 琴譜">
-              📑 另存 PDF
+              另存 PDF
             </button>
-            <button type="button" id="btnExportPageJpg" class="btn btn-emerald" disabled title="將目前這一頁轉好調的琴譜另存為高清 JPG 圖片">
-              🖼️ 另存 JPG
+            <button type="button" id="btnExportPageJpg" class="btn" disabled title="將目前這一頁轉好調的琴譜另存為高清 JPG 圖片">
+              另存 JPG
             </button>
             <button type="button" id="btnToggleTagToolsDrawer" class="btn" title="展開標籤外觀、位置微調、新增和弦與專案檔存取工具">
-              🛠️ 標籤微調 ▾
+              標籤微調 ▾
             </button>
             <button type="button" id="btnToggleApiKeyBox" class="btn" title="設定 Gemini API Key 與查看今日剩餘免費額度">
-              ⚙️ API 設定 ▾
+              API 設定 ▾
             </button>
           </div>
         </div>
@@ -212,33 +208,33 @@
               載入琴譜後即可啟用 AI 辨識
             </span>
           </div>
-          <span id="apiKeyStatusBadge" class="sheet-status-badge status-info" style="padding: 2px 8px; font-size: 0.78rem;">🔑 尚未設定 API Key</span>
+          <span id="apiKeyStatusBadge" class="sheet-status-badge status-info" style="padding: 2px 8px; font-size: 0.78rem;">尚未設定 API Key</span>
         </div>
 
-        <!-- 抽屜 A：🛠️ 標籤微調與進階工具 (預設收合，點選「🛠️ 標籤微調 ▾」展開) -->
+        <!-- 抽屜 A：標籤微調與進階工具 (預設收合，點選「標籤微調 ▾」展開) -->
         <div id="tagToolsDrawer" class="sheet-tag-controls-panel" style="display: none; margin-bottom: 10px; padding: 10px 12px;">
           <div class="tag-controls-row" style="gap: 12px;">
             <!-- 顯示開關與新增和弦 -->
             <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
               <button type="button" id="btnToggleTagsVisible" class="btn btn-emerald">
-                👁️ 標籤：顯示中
+                標籤：顯示中
               </button>
               <button type="button" id="btnToggleAddChordMode" class="btn">
-                ➕ 點譜新增和弦：關
+                點譜新增和弦：關
               </button>
             </div>
 
             <!-- 標籤樣式與字體大小 -->
             <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
-              <label for="tagStyleSelect" style="font-size: 0.8rem; color: #94a3b8; font-weight: 700;">🎨 樣式：</label>
+              <label for="tagStyleSelect" style="font-size: 0.8rem; color: #94a3b8; font-weight: 700;">樣式：</label>
               <select id="tagStyleSelect">
-                <option value="red-box">🔴 白底紅字紅框</option>
-                <option value="clean-cover">⚪ 純白無框覆蓋</option>
-                <option value="blue-box">🔵 白底藍字藍框</option>
-                <option value="yellow-box">🟡 黃底黑字黑框</option>
+                <option value="red-box">白底紅字紅框</option>
+                <option value="clean-cover">純白無框覆蓋</option>
+                <option value="blue-box">白底藍字藍框</option>
+                <option value="yellow-box">黃底黑字黑框</option>
               </select>
 
-              <label for="tagSizeSelect" style="font-size: 0.8rem; color: #94a3b8; font-weight: 700;">🔠 字體：</label>
+              <label for="tagSizeSelect" style="font-size: 0.8rem; color: #94a3b8; font-weight: 700;">字體：</label>
               <select id="tagSizeSelect">
                 <option value="12">小 (12px)</option>
                 <option value="15" selected>標準 (15px)</option>
@@ -249,24 +245,24 @@
 
             <!-- 全頁批次微調與重置 -->
             <div style="display: flex; align-items: center; gap: 4px; flex-wrap: wrap;">
-              <span style="font-size: 0.8rem; color: #94a3b8; font-weight: 700;">📐 全頁微調：</span>
-              <button type="button" id="btnNudgeUp" class="btn" style="padding: 4px 7px;" title="全頁標籤上移">⬆️</button>
-              <button type="button" id="btnNudgeDown" class="btn" style="padding: 4px 7px;" title="全頁標籤下移">⬇️</button>
-              <button type="button" id="btnNudgeLeft" class="btn" style="padding: 4px 7px;" title="全頁標籤左移">⬅️</button>
-              <button type="button" id="btnNudgeRight" class="btn" style="padding: 4px 7px;" title="全頁標籤右移">➡️</button>
-              <button type="button" id="btnResetPageChords" class="btn" style="padding: 4px 8px;" title="將本頁和弦與座標恢復為初始辨識狀態">↩️ 重置座標</button>
+              <span style="font-size: 0.8rem; color: #94a3b8; font-weight: 700;">全頁微調：</span>
+              <button type="button" id="btnNudgeUp" class="btn" style="padding: 4px 8px;" title="全頁標籤上移">↑</button>
+              <button type="button" id="btnNudgeDown" class="btn" style="padding: 4px 8px;" title="全頁標籤下移">↓</button>
+              <button type="button" id="btnNudgeLeft" class="btn" style="padding: 4px 8px;" title="全頁標籤左移">←</button>
+              <button type="button" id="btnNudgeRight" class="btn" style="padding: 4px 8px;" title="全頁標籤右移">→</button>
+              <button type="button" id="btnResetPageChords" class="btn" style="padding: 4px 8px;" title="將本頁和弦與座標恢復為初始辨識狀態">重置座標</button>
             </div>
 
             <!-- 重新辨識與專案檔存取 -->
             <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-left: auto;">
               <button type="button" id="btnForceAiRecognize" class="btn" disabled title="強制呼叫 Gemini AI 重新辨識本頁">
-                🔄 重辨識本頁
+                重辨識本頁
               </button>
-              <button type="button" id="btnExportProjectJson" class="btn btn-amber" disabled title="將琴譜與微調好的座標存為 .json 專案檔，日後 0 Token 秒開">
-                💾 存專案檔
+              <button type="button" id="btnExportProjectJson" class="btn" disabled title="將琴譜與微調好的座標存為 .json 專案檔，日後 0 Token 秒開">
+                存專案檔
               </button>
               <label for="projectJsonFileInput" class="btn" style="cursor: pointer;" title="載入 .json 琴譜專案檔">
-                📂 載入專案
+                載入專案
               </label>
               <input type="file" id="projectJsonFileInput" accept=".json,application/json" style="display: none;" />
             </div>
