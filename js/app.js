@@ -175,6 +175,10 @@ C CM7 | C7 | Em | bE | Dm | Em | Fm | Gsus4 | C`
     els.chordRefTableBody = document.getElementById('chordRefTableBody');
 
     // 模式二 (T2-1 & T2-2)：琴譜 PDF / JPG 載入、高清預覽與 Gemini AI 抓譜區
+    els.sheetUploadGrid = document.getElementById('sheetUploadGrid');
+    els.btnToggleUploadPanel = document.getElementById('btnToggleUploadPanel');
+    els.btnToggleTagToolsDrawer = document.getElementById('btnToggleTagToolsDrawer');
+    els.tagToolsDrawer = document.getElementById('tagToolsDrawer');
     els.sheetViewerStatus = document.getElementById('sheetViewerStatus');
     els.sheetDropZone = document.getElementById('sheetDropZone');
     els.sheetFileInput = document.getElementById('sheetFileInput');
@@ -878,38 +882,10 @@ C CM7 | C7 | Em | bE | Dm | Em | Fm | Gsus4 | C`
       state.selectedSheetTagId = pageObj.chords[0].id;
     }
 
-    // 1. 渲染上方已辨識和弦膠囊清單
+    // 1. 保持上方舊版重複和弦膠囊清單隱藏 (和弦已直接顯示於琴譜對應位置，不再重複佔用上方版面)
     if (els.recognizedChordsBar) {
-      els.recognizedChordsBar.style.display = 'flex';
-      const pillsHTML = pageObj.chords.map((ch) => {
-        const tr = MusicTheory.transposeChord(ch.raw, state.sourceKey, state.targetKey);
-        const tgtText = tr
-          ? (state.displayMode === 'number' ? tr.fixedNumberChord : tr.englishChord)
-          : ch.raw;
-        const isSel = ch.id === state.selectedSheetTagId;
-        const borderStyle = isSel ? 'border-color:#60a5fa; background:rgba(59,130,246,0.22);' : '';
-        return `
-          <span class="rec-chord-pill" data-id="${ch.id}" data-raw="${ch.raw}" style="${borderStyle}" title="點擊查看鋼琴組成音或修改">
-            <span style="color:#94a3b8;">${ch.raw}</span>
-            <span>➔</span>
-            <strong style="color:#34d399;">${tgtText}</strong>
-          </span>`;
-      }).join('');
-
-      els.recognizedChordsBar.innerHTML = `
-        <span style="font-size:0.82rem; font-weight:800; color:#60a5fa; width:100%;">
-          🎯 本頁共 ${pageObj.chords.length} 個和弦標記（點擊任一標籤可看鋼琴組成音與修改文字，在譜面上按住滑鼠可直接拖曳微調位置）：
-        </span>
-        ${pillsHTML}
-      `;
-
-      els.recognizedChordsBar.querySelectorAll('.rec-chord-pill').forEach(pill => {
-        pill.addEventListener('click', () => {
-          state.selectedSheetTagId = pill.getAttribute('data-id');
-          renderSheetOverlayAndChordsBar();
-          renderSheetSelectedInspector(true);
-        });
-      });
+      els.recognizedChordsBar.style.display = 'none';
+      els.recognizedChordsBar.innerHTML = '';
     }
 
     // 2. 渲染琴譜畫布上的轉調和弦標籤 (#sheetOverlayLayer)
@@ -1238,6 +1214,15 @@ C CM7 | C7 | Em | bE | Dm | Em | Fm | Gsus4 | C`
           if (els.btnExportAllPdf) els.btnExportAllPdf.disabled = false;
           if (els.btnExportProjectJson) els.btnExportProjectJson.disabled = false;
 
+          // 載入琴譜後，自動收合大塊上傳區以最大化看譜空間，並顯示主工具列「📂 更換琴譜 ▾」按鈕
+          if (els.sheetUploadGrid) {
+            els.sheetUploadGrid.style.display = 'none';
+          }
+          if (els.btnToggleUploadPanel) {
+            els.btnToggleUploadPanel.style.display = 'inline-flex';
+            els.btnToggleUploadPanel.textContent = '📂 更換琴譜 ▾';
+          }
+
           // 自動檢查整份琴譜每一頁的快取，確保未翻到的第 2 頁也能在匯出全曲 PDF 時一併帶入已快取的和弦
           const vState = SheetViewer.getState();
           if (window.SheetParser && Array.isArray(vState.pages)) {
@@ -1272,6 +1257,22 @@ C CM7 | C7 | Em | bE | Dm | Em | Fm | Gsus4 | C`
         console.error('更新 API Key 狀態列時發生錯誤:', err);
       }
 
+      // 綁定「📂 更換琴譜 ▾」與「🛠️ 標籤微調 ▾」抽屜開關
+      if (els.btnToggleUploadPanel && els.sheetUploadGrid) {
+        els.btnToggleUploadPanel.addEventListener('click', () => {
+          const isHidden = els.sheetUploadGrid.style.display === 'none';
+          els.sheetUploadGrid.style.display = isHidden ? 'grid' : 'none';
+          els.btnToggleUploadPanel.textContent = isHidden ? '📂 收合上傳區 ▴' : '📂 更換琴譜 ▾';
+        });
+      }
+      if (els.btnToggleTagToolsDrawer && els.tagToolsDrawer) {
+        els.btnToggleTagToolsDrawer.addEventListener('click', () => {
+          const isHidden = els.tagToolsDrawer.style.display === 'none';
+          els.tagToolsDrawer.style.display = isHidden ? 'block' : 'none';
+          els.btnToggleTagToolsDrawer.textContent = isHidden ? '🛠️ 標籤微調 ▴' : '🛠️ 標籤微調 ▾';
+        });
+      }
+
       // 綁定 AI 辨識與 API Key 設定按鈕
       if (els.btnRunAiRecognize) {
         els.btnRunAiRecognize.addEventListener('click', () => executeCurrentPageRecognition(false));
@@ -1290,6 +1291,7 @@ C CM7 | C7 | Em | bE | Dm | Em | Fm | Gsus4 | C`
         els.btnToggleApiKeyBox.addEventListener('click', () => {
           const isHidden = els.apiKeyConfigBox.style.display === 'none';
           els.apiKeyConfigBox.style.display = isHidden ? 'block' : 'none';
+          els.btnToggleApiKeyBox.textContent = isHidden ? '⚙️ API 設定 ▴' : '⚙️ API 設定 ▾';
           if (isHidden && els.geminiApiKeyInput && window.SheetParser) {
             els.geminiApiKeyInput.value = SheetParser.getRawApiKeysText ? SheetParser.getRawApiKeysText() : SheetParser.getApiKey();
           }
@@ -1303,6 +1305,9 @@ C CM7 | C7 | Em | bE | Dm | Em | Fm | Gsus4 | C`
           }
           updateApiKeyStatusUI();
           els.apiKeyConfigBox.style.display = 'none';
+          if (els.btnToggleApiKeyBox) {
+            els.btnToggleApiKeyBox.textContent = '⚙️ API 設定 ▾';
+          }
         });
       }
       if (els.btnClearApiKey && window.SheetParser) {
@@ -1344,8 +1349,8 @@ C CM7 | C7 | Em | bE | Dm | Em | Fm | Gsus4 | C`
         els.btnToggleAddChordMode.addEventListener('click', () => {
           state.addChordOnSheetMode = !state.addChordOnSheetMode;
           els.btnToggleAddChordMode.textContent = state.addChordOnSheetMode
-            ? '➕ 點擊譜面新增和弦：開啟中 (請點譜面任意位置)'
-            : '➕ 點擊譜面新增和弦：關閉';
+            ? '➕ 點譜新增和弦：開 (點譜面新增)'
+            : '➕ 點譜新增和弦：關';
           els.btnToggleAddChordMode.className = state.addChordOnSheetMode ? 'btn btn-amber' : 'btn';
           renderSheetOverlayAndChordsBar();
         });
@@ -1395,8 +1400,8 @@ C CM7 | C7 | Em | bE | Dm | Em | Fm | Gsus4 | C`
         els.btnToggleTagsVisible.addEventListener('click', () => {
           state.tagsVisible = !state.tagsVisible;
           els.btnToggleTagsVisible.textContent = state.tagsVisible
-            ? '👁️ 覆蓋標籤：顯示中 (點此對照原譜)'
-            : '🙈 覆蓋標籤：已隱藏 (顯示原譜)';
+            ? '👁️ 標籤：顯示中'
+            : '🙈 標籤：已隱藏';
           els.btnToggleTagsVisible.className = state.tagsVisible ? 'btn btn-emerald' : 'btn';
           renderSheetOverlayAndChordsBar();
         });

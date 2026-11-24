@@ -141,138 +141,126 @@
     </div>
 
     <!-- ====================================================================== -->
-    <!-- 分頁 2 (Phase 2 T2-1)：琴譜 PDF / JPG 載入與高清畫布預覽 -->
+    <!-- 分頁 2 (Phase 2 T2-1)：琴譜 PDF / JPG 載入與高清畫布預覽 (極簡單一工具列版) -->
     <!-- ====================================================================== -->
     <div id="tab-sheet-viewer" class="tab-pane">
-      <section class="card">
-        <div class="card-header">
-          <div class="card-title">
-            <span>📄</span>
-            <span>琴譜 PDF / JPG 載入與高清畫布預覽區 (支援多頁 PDF 翻頁與無損縮放)</span>
-          </div>
-          <div id="sheetViewerStatus" class="sheet-status-badge status-info">
-            請拖曳上傳您的 PDF / JPG 琴譜，或點擊下方按鈕一鍵載入內建範例琴譜
-          </div>
-        </div>
+      <section class="card" style="padding: 14px 16px;">
 
-        <!-- 檔案拖曳上傳區 & 內建範例一鍵載入區 -->
-        <div class="sheet-upload-grid">
+        <!-- 1. 檔案拖曳上傳區 & 內建範例載入區 (載入琴譜後自動收合，可由主工具列「📂 更換琴譜」隨時展開) -->
+        <div id="sheetUploadGrid" class="sheet-upload-grid" style="margin-bottom: 12px;">
           <label id="sheetDropZone" class="sheet-drop-zone" for="sheetFileInput">
             <div class="drop-zone-info">
               <span class="drop-zone-icon">📤</span>
               <div>
-                <div style="font-size: 1.02rem; font-weight: 800; color: #f8fafc;">
-                  將 PDF、JPG 或 PNG 琴譜檔案拖曳至此處，或點擊選擇檔案
+                <div style="font-size: 1rem; font-weight: 800; color: #f8fafc;">
+                  拖曳 PDF / JPG / PNG 琴譜至此，或點擊選擇檔案
                 </div>
-                <div style="font-size: 0.82rem; color: #94a3b8; margin-top: 2px;">
-                  支援多頁 PDF 樂譜（透過 PDF.js 自動轉為 2 倍高清畫布）與各類手機拍照／掃描圖片譜
+                <div style="font-size: 0.8rem; color: #94a3b8; margin-top: 2px;">
+                  載入後此區塊將自動收合以最大化看譜空間（隨時可把新檔案直接拖進琴譜畫面替換）
                 </div>
               </div>
             </div>
-            <span class="btn btn-primary">📁 瀏覽選擇本機琴譜...</span>
+            <span class="btn btn-primary">📁 選擇本機琴譜...</span>
             <input type="file" id="sheetFileInput" accept=".pdf,image/jpeg,image/png,image/webp,image/bmp" style="display: none;" />
           </label>
 
           <div class="sample-loader-box">
-            <div style="font-size: 0.8rem; font-weight: 700; color: #94a3b8;">⚡ 免選檔！直接載入備份之範例琴譜：</div>
+            <div style="font-size: 0.8rem; font-weight: 700; color: #94a3b8;">⚡ 免選檔！直接體驗內建範例：</div>
             <div style="display: flex; flex-wrap: wrap; gap: 8px;">
               <button type="button" id="btnLoadSamplePdf" class="btn btn-amber">
-                📑 載入範例 1：《償還_Am.pdf》(2 頁 PDF)
+                📑 範例 1：《償還_Am.pdf》(2頁)
               </button>
               <button type="button" id="btnLoadSampleJpg" class="btn btn-emerald">
-                🖼️ 載入範例 2：《川の流れのように_C.jpg》(JPG)
+                🖼️ 範例 2：《川の流れのように_C.jpg》
               </button>
             </div>
           </div>
         </div>
 
-        <!-- T2-2：Gemini Vision AI 智慧抓譜與 API Key 安全設定區 -->
-        <div class="ai-vision-panel">
-          <div class="ai-vision-row">
-            <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
-              <button type="button" id="btnRunAiRecognize" class="btn btn-primary" disabled>
-                🤖 智慧辨識全曲所有頁面 (優先使用快取)
-              </button>
-              <button type="button" id="btnForceAiRecognize" class="btn" disabled title="強制呼叫 Gemini Vision API 重新辨識當前頁面">
-                🔄 重新辨識本頁
-              </button>
-              <button type="button" id="btnCancelAiRecognize" class="btn btn-danger" style="display: none;" title="立即強制停止當前辨識">
-                🛑 取消辨識
-              </button>
-              <span id="aiRecognizeSummary" style="font-size: 0.86rem; color: #94a3b8; font-weight: 700;">
-                請先載入琴譜以啟用和弦辨識
-              </span>
-            </div>
-
-            <div style="display: flex; align-items: center; gap: 8px;">
-              <span id="apiKeyStatusBadge" class="sheet-status-badge status-info">🔑 尚未設定 API Key</span>
-              <button type="button" id="btnToggleApiKeyBox" class="btn">⚙️ API Key 設定</button>
-            </div>
+        <!-- 2. 常駐單一主工具列 (濃縮換譜、AI 辨識、翻頁、縮放、匯出 PDF/JPG 與微調/API 抽屜開關) -->
+        <div class="sheet-viewer-toolbar" style="margin-bottom: 8px; padding: 10px 12px; gap: 10px;">
+          <!-- 左區：換譜 + AI 辨識 -->
+          <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+            <button type="button" id="btnToggleUploadPanel" class="btn" style="display: none;" title="展開或收合檔案上傳與範例選擇區">
+              📂 更換琴譜 ▾
+            </button>
+            <button type="button" id="btnRunAiRecognize" class="btn btn-primary" disabled>
+              🤖 AI 辨識全曲
+            </button>
+            <button type="button" id="btnCancelAiRecognize" class="btn btn-danger" style="display: none;" title="立即強制停止當前辨識">
+              🛑 取消
+            </button>
           </div>
 
-          <!-- Token 用量與今日剩餘免費額度即時監控列 -->
-          <div id="tokenUsageStatsBar" style="background: rgba(15, 23, 42, 0.7); border: 1px solid #334155; border-radius: 6px; padding: 8px 12px; font-size: 0.82rem; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px;">
-            <!-- 由 js/app.js 動態渲染 Google API 回傳之精確 Token 用量與免費額度剩餘統計 -->
+          <!-- 中區：翻頁 + 縮放 -->
+          <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+            <button type="button" id="btnSheetPrevPage" class="btn" disabled style="padding: 5px 9px;" title="上一頁">◀</button>
+            <span id="sheetPageIndicator" style="font-weight: 800; font-size: 0.88rem; min-width: 78px; text-align: center;">尚未載入</span>
+            <button type="button" id="btnSheetNextPage" class="btn" disabled style="padding: 5px 9px;" title="下一頁">▶</button>
+            <div id="sheetPageQuickBtns" style="display: flex; gap: 4px;"></div>
+
+            <span style="color: #334155; margin: 0 2px;">｜</span>
+            <button type="button" id="btnSheetZoomOut" class="btn" style="padding: 5px 8px;" title="縮小畫面 (-15%)">➖</button>
+            <button type="button" id="btnSheetZoomReset" class="btn" style="padding: 5px 8px;" title="重置為 100% 適應寬度">
+              <span id="sheetZoomLabel">100%</span>
+            </button>
+            <button type="button" id="btnSheetZoomIn" class="btn" style="padding: 5px 8px;" title="放大畫面 (+15%)">➕</button>
           </div>
 
-          <!-- 可收合之 Gemini API Key 設定盒 (儲存於本機 localStorage，不上傳 Git) -->
-          <div id="apiKeyConfigBox" class="api-key-config-box" style="display: none;">
-            <div style="display: flex; flex-direction: column; gap: 8px;">
-              <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
-                <label for="geminiApiKeyInput" style="font-size: 0.84rem; font-weight: 700; color: #fde68a;">
-                  🔑 Google Gemini API Key（支援多組 Key，每行輸入一組）：
-                </label>
-                <div style="display: flex; align-items: center; gap: 8px;">
-                  <select id="geminiModelSelect" title="選擇 Gemini 視覺模型（遇到塞車或額度滿時會自動跨模型備援）">
-                    <option value="gemini-3.6-flash" selected>gemini-3.6-flash (⭐ 預設推薦 / 實測極速不塞車)</option>
-                    <option value="gemini-3-flash-preview">gemini-3-flash-preview (高速備援版)</option>
-                    <option value="gemini-3.5-flash-lite">gemini-3.5-flash-lite (輕量穩定備援版)</option>
-                    <option value="gemini-3.8-flash">gemini-3.8-flash (最新旗艦版 / 尖峰易塞車)</option>
-                  </select>
-                  <button type="button" id="btnSaveApiKey" class="btn btn-emerald">💾 儲存金鑰</button>
-                  <button type="button" id="btnClearApiKey" class="btn">🗑️ 清除</button>
-                </div>
-              </div>
-              <textarea id="geminiApiKeyInput" rows="2" placeholder="可貼上一組或多組 API Key（每行貼一組）&#10;💡 功能：當某組 Key 額度用完 (Quota exceeded) 時，系統將自動無縫切換到下一組 Key 繼續辨識！" style="width: 100%; box-sizing: border-box; resize: vertical; min-height: 52px; font-family: monospace; font-size: 0.82rem; padding: 6px 10px; background: rgba(15, 23, 42, 0.85); color: #f8fafc; border: 1px solid #475569; border-radius: 6px;"></textarea>
-            </div>
-            <div style="font-size: 0.78rem; color: #94a3b8; margin-top: 6px;">
-              💡 <strong>多組 Key 智慧輪替</strong>：Google 免費方案每組 Key 每日上限為 20 次。若填入 2 組 Key，每日即有 40 次額度；填入 3 組即有 60 次！偵測到額度耗盡時系統會自動輪替切換，無需手動改金鑰。內建兩份範例琴譜已包含預先校對之座標快取，免填 Key 亦可直接體驗 0 Token 瞬時辨識與轉調！
-            </div>
-          </div>
-
-          <!-- 本頁辨識出的和弦清單與轉調預覽列 -->
-          <div id="recognizedChordsBar" class="recognized-chords-bar" style="display: none;">
-            <!-- 由 js/app.js 動態渲染本頁辨識出的所有和弦與轉調對照膠囊 -->
+          <!-- 右區：匯出 PDF/JPG + 標籤微調抽屜 + API 設定抽屜 -->
+          <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+            <button type="button" id="btnExportAllPdf" class="btn btn-primary" disabled title="將全曲所有頁面（含轉調和弦標籤）打包另存為新 PDF 琴譜">
+              📑 另存 PDF
+            </button>
+            <button type="button" id="btnExportPageJpg" class="btn btn-emerald" disabled title="將目前這一頁轉好調的琴譜另存為高清 JPG 圖片">
+              🖼️ 另存 JPG
+            </button>
+            <button type="button" id="btnToggleTagToolsDrawer" class="btn" title="展開標籤外觀、位置微調、新增和弦與專案檔存取工具">
+              🛠️ 標籤微調 ▾
+            </button>
+            <button type="button" id="btnToggleApiKeyBox" class="btn" title="設定 Gemini API Key 與查看今日剩餘免費額度">
+              ⚙️ API 設定 ▾
+            </button>
           </div>
         </div>
 
-        <!-- T2-3：原譜覆蓋標籤樣式、整頁位置微調、新增模式與點選和弦組成音/鋼琴聯動面板 -->
-        <div class="sheet-tag-controls-panel">
-          <div class="tag-controls-row">
-            <!-- 新增模式與顯示開關 -->
-            <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
-              <button type="button" id="btnToggleAddChordMode" class="btn">
-                ➕ 點擊譜面新增和弦：關閉
-              </button>
+        <!-- 3. 極簡單行狀態列 (整合檔案狀態、辨識進度與金鑰狀態燈號) -->
+        <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; padding: 4px 6px 8px 6px; font-size: 0.82rem;">
+          <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+            <span id="sheetViewerStatus" class="sheet-status-badge status-info" style="padding: 2px 8px; font-size: 0.78rem;">
+              請上傳 PDF / JPG 琴譜或點選上方範例
+            </span>
+            <span id="aiRecognizeSummary" style="color: #94a3b8; font-weight: 700;">
+              載入琴譜後即可啟用 AI 辨識
+            </span>
+          </div>
+          <span id="apiKeyStatusBadge" class="sheet-status-badge status-info" style="padding: 2px 8px; font-size: 0.78rem;">🔑 尚未設定 API Key</span>
+        </div>
+
+        <!-- 抽屜 A：🛠️ 標籤微調與進階工具 (預設收合，點選「🛠️ 標籤微調 ▾」展開) -->
+        <div id="tagToolsDrawer" class="sheet-tag-controls-panel" style="display: none; margin-bottom: 10px; padding: 10px 12px;">
+          <div class="tag-controls-row" style="gap: 12px;">
+            <!-- 顯示開關與新增和弦 -->
+            <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
               <button type="button" id="btnToggleTagsVisible" class="btn btn-emerald">
-                👁️ 覆蓋標籤：顯示中 (點此對照原譜)
+                👁️ 標籤：顯示中
               </button>
-              <button type="button" id="btnResetPageChords" class="btn" title="將本頁和弦與座標恢復為初始辨識狀態">
-                ↩️ 重置本頁座標
+              <button type="button" id="btnToggleAddChordMode" class="btn">
+                ➕ 點譜新增和弦：關
               </button>
             </div>
 
-            <!-- 標籤外觀樣式與字體大小 -->
-            <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
-              <label for="tagStyleSelect" style="font-size: 0.82rem; color: #94a3b8; font-weight: 700;">🎨 標籤樣式：</label>
+            <!-- 標籤樣式與字體大小 -->
+            <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+              <label for="tagStyleSelect" style="font-size: 0.8rem; color: #94a3b8; font-weight: 700;">🎨 樣式：</label>
               <select id="tagStyleSelect">
-                <option value="red-box">🔴 白底紅字紅框 (預設醒目)</option>
-                <option value="clean-cover">⚪ 純白底紅字無框 (直接覆蓋原譜字)</option>
-                <option value="blue-box">🔵 白底藍字藍框 (清爽高對比)</option>
-                <option value="yellow-box">🟡 黃底黑字黑框 (螢光筆標示)</option>
+                <option value="red-box">🔴 白底紅字紅框</option>
+                <option value="clean-cover">⚪ 純白無框覆蓋</option>
+                <option value="blue-box">🔵 白底藍字藍框</option>
+                <option value="yellow-box">🟡 黃底黑字黑框</option>
               </select>
 
-              <label for="tagSizeSelect" style="font-size: 0.82rem; color: #94a3b8; font-weight: 700;">🔠 字體：</label>
+              <label for="tagSizeSelect" style="font-size: 0.8rem; color: #94a3b8; font-weight: 700;">🔠 字體：</label>
               <select id="tagSizeSelect">
                 <option value="12">小 (12px)</option>
                 <option value="15" selected>標準 (15px)</option>
@@ -281,72 +269,74 @@
               </select>
             </div>
 
-            <!-- 整頁標籤批次位置微調 -->
-            <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
-              <span style="font-size: 0.82rem; color: #94a3b8; font-weight: 700;">📐 全頁位置微調：</span>
-              <button type="button" id="btnNudgeUp" class="btn" style="padding: 4px 8px;" title="本頁所有標籤往上微調">⬆️ 上移</button>
-              <button type="button" id="btnNudgeDown" class="btn" style="padding: 4px 8px;" title="本頁所有標籤往下微調">⬇️ 下移</button>
-              <button type="button" id="btnNudgeLeft" class="btn" style="padding: 4px 8px;" title="本頁所有標籤往左微調">⬅️ 左移</button>
-              <button type="button" id="btnNudgeRight" class="btn" style="padding: 4px 8px;" title="本頁所有標籤往右微調">➡️ 右移</button>
+            <!-- 全頁批次微調與重置 -->
+            <div style="display: flex; align-items: center; gap: 4px; flex-wrap: wrap;">
+              <span style="font-size: 0.8rem; color: #94a3b8; font-weight: 700;">📐 全頁微調：</span>
+              <button type="button" id="btnNudgeUp" class="btn" style="padding: 4px 7px;" title="全頁標籤上移">⬆️</button>
+              <button type="button" id="btnNudgeDown" class="btn" style="padding: 4px 7px;" title="全頁標籤下移">⬇️</button>
+              <button type="button" id="btnNudgeLeft" class="btn" style="padding: 4px 7px;" title="全頁標籤左移">⬅️</button>
+              <button type="button" id="btnNudgeRight" class="btn" style="padding: 4px 7px;" title="全頁標籤右移">➡️</button>
+              <button type="button" id="btnResetPageChords" class="btn" style="padding: 4px 8px;" title="將本頁和弦與座標恢復為初始辨識狀態">↩️ 重置座標</button>
             </div>
-          </div>
 
-          <!-- 點擊任一和弦標籤時的「手動修改 ＋ 組成音明細 ＋ 內嵌鋼琴鍵盤」即時聯動面板 -->
-          <div id="sheetSelectedChordInspector" class="sheet-selected-inspector" style="display: none;">
-            <div class="inspector-top-row">
-              <!-- 左側：手動修改原譜和弦或刪除此標籤 -->
-              <div class="inspector-edit-group">
-                <span style="font-size: 0.82rem; font-weight: 800; color: #fde68a;">✏️ 修改選取標籤 (或直接於譜上拖曳位置)：</span>
-                <input type="text" id="inspectorRawChordInput" style="width: 110px; font-weight: 800;" placeholder="原譜和弦" />
-                <button type="button" id="btnInspectorUpdateChord" class="btn btn-primary" style="padding: 5px 10px;">✅ 更新和弦</button>
-                <button type="button" id="btnInspectorDeleteChord" class="btn" style="padding: 5px 10px; color: #fda4af; border-color: #f43f5e;">🗑️ 刪除標籤</button>
-              </div>
-
-              <!-- 中間：該和弦轉調結果與組成音即時資訊 -->
-              <div id="inspectorVoicingSummary" class="inspector-voicing-summary">
-                <!-- 由 js/app.js 動態渲染 -->
-              </div>
+            <!-- 重新辨識與專案檔存取 -->
+            <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-left: auto;">
+              <button type="button" id="btnForceAiRecognize" class="btn" disabled title="強制呼叫 Gemini AI 重新辨識本頁">
+                🔄 重辨識本頁
+              </button>
+              <button type="button" id="btnExportProjectJson" class="btn btn-amber" disabled title="將琴譜與微調好的座標存為 .json 專案檔，日後 0 Token 秒開">
+                💾 存專案檔
+              </button>
+              <label for="projectJsonFileInput" class="btn" style="cursor: pointer;" title="載入 .json 琴譜專案檔">
+                📂 載入專案
+              </label>
+              <input type="file" id="projectJsonFileInput" accept=".json,application/json" style="display: none;" />
             </div>
           </div>
         </div>
 
-        <!-- 多頁切換、縮放控制與 T3-1/T3-2 另存 JPG / PDF / 專案檔工具列 -->
-        <div class="sheet-viewer-toolbar">
-          <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
-            <button type="button" id="btnSheetPrevPage" class="btn" disabled>◀ 上一頁</button>
-            <span id="sheetPageIndicator" style="font-weight: 800; font-size: 0.92rem; min-width: 95px; text-align: center;">尚未載入頁數</span>
-            <button type="button" id="btnSheetNextPage" class="btn" disabled>下一頁 ▶</button>
-            <div id="sheetPageQuickBtns" style="display: flex; gap: 6px; margin-left: 6px;"></div>
+        <!-- 抽屜 B：⚙️ Gemini API Key 設定與免費額度監控盒 (預設收合，點選「⚙️ API 設定 ▾」展開) -->
+        <div id="apiKeyConfigBox" class="api-key-config-box" style="display: none; margin-bottom: 10px;">
+          <div id="tokenUsageStatsBar" style="background: rgba(15, 23, 42, 0.7); border: 1px solid #334155; border-radius: 6px; padding: 7px 10px; margin-bottom: 8px; font-size: 0.8rem; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px;">
+            <!-- 由 js/app.js 動態渲染免費額度剩餘統計 -->
           </div>
-
-          <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
-            <span style="font-size: 0.84rem; color: #94a3b8; font-weight: 700;">🔍 縮放：</span>
-            <button type="button" id="btnSheetZoomOut" class="btn" title="縮小畫面 (-15%)">➖</button>
-            <button type="button" id="btnSheetZoomReset" class="btn" title="重置為 100% 適應寬度">
-              <span id="sheetZoomLabel">100%</span>
-            </button>
-            <button type="button" id="btnSheetZoomIn" class="btn" title="放大畫面 (+15%)">➕</button>
-          </div>
-
-          <!-- T3-1 & T3-2：另存轉調後新琴譜 (JPG / PDF) 與專案檔 (.json) -->
-          <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
-            <button type="button" id="btnExportPageJpg" class="btn btn-emerald" disabled title="將目前這一頁轉好調的琴譜另存為高清 JPG 圖片">
-              🖼️ 另存本頁 JPG
-            </button>
-            <button type="button" id="btnExportAllPdf" class="btn btn-primary" disabled title="將全曲所有頁面（含轉調和弦標籤）打包另存為新 PDF 琴譜">
-              📑 另存全曲 PDF
-            </button>
-            <button type="button" id="btnExportProjectJson" class="btn btn-amber" disabled title="將整份琴譜與微調好的和弦座標存為 .json 專案檔，日後載入 0 Token 秒開">
-              💾 儲存專案檔 (.json)
-            </button>
-            <label for="projectJsonFileInput" class="btn" style="cursor: pointer;" title="載入之前儲存的 .json 琴譜專案檔 (免重新辨識)">
-              📂 載入專案檔
-            </label>
-            <input type="file" id="projectJsonFileInput" accept=".json,application/json" style="display: none;" />
+          <div style="display: flex; flex-direction: column; gap: 8px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+              <label for="geminiApiKeyInput" style="font-size: 0.82rem; font-weight: 700; color: #fde68a;">
+                🔑 Google Gemini API Key（支援多組 Key，每行輸入一組，額度滿自動輪替）：
+              </label>
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <select id="geminiModelSelect" title="選擇 Gemini 視覺模型（遇到塞車或額度滿時會自動跨模型備援）">
+                  <option value="gemini-3.6-flash" selected>gemini-3.6-flash (⭐ 預設推薦 / 極速不塞車)</option>
+                  <option value="gemini-3-flash-preview">gemini-3-flash-preview (高速備援版)</option>
+                  <option value="gemini-3.5-flash-lite">gemini-3.5-flash-lite (輕量穩定備援版)</option>
+                  <option value="gemini-3.8-flash">gemini-3.8-flash (最新旗艦版 / 尖峰易塞車)</option>
+                </select>
+                <button type="button" id="btnSaveApiKey" class="btn btn-emerald">💾 儲存</button>
+                <button type="button" id="btnClearApiKey" class="btn">🗑️ 清除</button>
+              </div>
+            </div>
+            <textarea id="geminiApiKeyInput" rows="2" placeholder="可貼上一組或多組 API Key（每行貼一組）" style="width: 100%; box-sizing: border-box; resize: vertical; min-height: 48px; font-family: monospace; font-size: 0.82rem; padding: 6px 10px; background: rgba(15, 23, 42, 0.85); color: #f8fafc; border: 1px solid #475569; border-radius: 6px;"></textarea>
           </div>
         </div>
 
-        <!-- 琴譜高清畫布舞台 (底層 Canvas + 上層 Overlay 覆蓋層) -->
+        <!-- 隱藏原重複的本頁和弦膠囊清單容器 (保留 DOM 節點相容性，不再佔據畫面) -->
+        <div id="recognizedChordsBar" class="recognized-chords-bar" style="display: none !important;"></div>
+
+        <!-- 4. 點選譜上任一和弦標籤時的單行快速檢視與修改列 -->
+        <div id="sheetSelectedChordInspector" class="sheet-selected-inspector" style="display: none; margin-bottom: 10px; padding: 8px 12px;">
+          <div class="inspector-top-row" style="gap: 10px;">
+            <div class="inspector-edit-group">
+              <span style="font-size: 0.8rem; font-weight: 800; color: #fde68a;">✏️ 選取和弦：</span>
+              <input type="text" id="inspectorRawChordInput" style="width: 88px; font-weight: 800; padding: 3px 7px;" placeholder="原譜和弦" />
+              <button type="button" id="btnInspectorUpdateChord" class="btn btn-primary" style="padding: 4px 8px; font-size: 0.78rem;">更新</button>
+              <button type="button" id="btnInspectorDeleteChord" class="btn" style="padding: 4px 8px; font-size: 0.78rem; color: #fda4af; border-color: #f43f5e;">刪除</button>
+            </div>
+            <div id="inspectorVoicingSummary" class="inspector-voicing-summary" style="font-size: 0.84rem;"></div>
+          </div>
+        </div>
+
+        <!-- 5. 琴譜高清畫布舞台 (底層 Canvas + 上層 Overlay 覆蓋層) -->
         <div class="sheet-stage-container">
           <div id="sheetEmptyPlaceholder" class="sheet-empty-placeholder">
             <div style="font-size: 3rem;">🎼</div>
