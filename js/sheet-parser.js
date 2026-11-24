@@ -21,7 +21,7 @@
   'use strict';
 
   const STORAGE_KEY_API = 'chord_transposer_gemini_api_key';
-  const STORAGE_KEY_MODEL = 'chord_transposer_gemini_model_v2';
+  const STORAGE_KEY_MODEL = 'chord_transposer_gemini_model_v3';
   const STORAGE_KEY_CACHE = 'chord_transposer_vision_cache_v1';
   const STORAGE_KEY_TOKEN_STATS = 'chord_transposer_token_stats_v1';
 
@@ -383,11 +383,57 @@
     return `${(fileName || 'sheet').trim()}::page_${pageNumber || 1}`;
   }
 
+  /**
+   * 檢測快取或辨識出的和弦座標是否發生異常堆疊或截斷
+   * （例如：舊版因模型回傳 0~1000 座標被 Math.min(98) 全數壓在 98% 右下角，或因欄位名稱差異全數退回 50% 正中央）
+   */
+  function isCoordinateCacheCorrupted(chords) {
+    if (!Array.isArray(chords) || chords.length === 0) return true;
+    if (chords.length < 3) return false;
+
+    let clamped98Count = 0;
+    let clamped1Count = 0;
+    let default50Count = 0;
+    const coordFreq = new Map();
+
+    for (let i = 0; i < chords.length; i++) {
+      const c = chords[i];
+      const x = Number(c && c.xPercent);
+      const y = Number(c && c.yPercent);
+      if (!Number.isFinite(x) || !Number.isFinite(y)) return true;
+
+      if (x >= 97.5 || y >= 97.5) clamped98Count++;
+      if (x <= 1.5 && y <= 1.5) clamped1Count++;
+      if (Math.abs(x - 50) < 0.2 && Math.abs(y - 50) < 0.2) default50Count++;
+
+      const posKey = `${Math.round(x)}_${Math.round(y)}`;
+      coordFreq.set(posKey, (coordFreq.get(posKey) || 0) + 1);
+    }
+
+    const total = chords.length;
+    let maxSameSpot = 0;
+    coordFreq.forEach(cnt => {
+      if (cnt > maxSameSpot) maxSameSpot = cnt;
+    });
+
+    // 若超過 35% 的和弦被擠壓在 98% 邊界、1% 邊界、50% 預設點，或超過 40% 的標籤重疊在同一個座標點，判定為座標異常快取
+    if (clamped98Count / total >= 0.35) return true;
+    if (clamped1Count / total >= 0.35) return true;
+    if (default50Count / total >= 0.35) return true;
+    if (total >= 4 && maxSameSpot / total >= 0.4) return true;
+
+    return false;
+  }
+
   function getCachedRecognition(fileName, pageNumber) {
     const key = makeCacheKey(fileName, pageNumber);
 
     if (memoryCache.has(key)) {
-      return JSON.parse(JSON.stringify(memoryCache.get(key)));
+      const memData = memoryCache.get(key);
+      if (memData && !isCoordinateCacheCorrupted(memData.chords)) {
+        return JSON.parse(JSON.stringify(memData));
+      }
+      memoryCache.delete(key);
     }
 
     if (typeof localStorage !== 'undefined') {
@@ -396,8 +442,15 @@
         if (rawStore) {
           const parsedStore = JSON.parse(rawStore);
           if (parsedStore && parsedStore[key]) {
-            memoryCache.set(key, parsedStore[key]);
-            return JSON.parse(JSON.stringify(parsedStore[key]));
+            const storedData = parsedStore[key];
+            // 自動攔截並清除座標異常（如全數被夾在 98% 或 50% 看不到標籤）的舊快取
+            if (isCoordinateCacheCorrupted(storedData.chords)) {
+              delete parsedStore[key];
+              localStorage.setItem(STORAGE_KEY_CACHE, JSON.stringify(parsedStore));
+            } else {
+              memoryCache.set(key, storedData);
+              return JSON.parse(JSON.stringify(storedData));
+            }
           }
         }
       } catch (e) {
@@ -501,18 +554,28 @@
 
   /**
    * 清洗並使用 MusicTheory.parseChord() 驗證 AI 回傳的和弦清單，自動過濾無效雜訊
+   * 內建「跨尺度座標自動正規化」：
+   * - 自動相容 0~100 百分比、Gemini 原生 0~1000 空間座標 (如 gemini-3-flash-preview 常回傳 0~1000)、0.0~1.0 正規化座標與 box_2d 邊界框
    */
   function sanitizeAndValidateChords(rawChordsList, pageNumber = 1) {
     if (!Array.isArray(rawChordsList)) return [];
 
-    const validated = [];
+    // 第一階段：提取合法和弦與原始數值座標，供整頁尺度判定
+    const candidates = [];
+    const finiteCoords = [];
+
     rawChordsList.forEach((item, idx) => {
-      if (!item || typeof item.raw !== 'string') return;
-      const cleanRaw = item.raw.trim()
-        .replace(/^\[|\]$/g, '') // 去除可能包覆的括號
+      if (!item || typeof item !== 'object') return;
+      const rawVal = item.raw ?? item.chord ?? item.symbol ?? item.name ?? item.text ?? item.label;
+      if (rawVal === undefined || rawVal === null) return;
+
+      const cleanRaw = String(rawVal).trim()
+        .replace(/^[\[\]【】「」『』()（）]+|[\[\]【】「」『』()（）]+$/g, '')
         .replace(/♯/g, '#')
         .replace(/♭/g, 'b')
         .replace(/Δ|△/g, 'M');
+
+      if (!cleanRaw) return;
 
       // 過濾常見電子琴控制字眼
       if (/^(R\d|Main|Fill|Intro|Ending|Style|Sync|Tempo|Mod)/i.test(cleanRaw)) {
@@ -525,16 +588,60 @@
         if (!parsed || !parsed.isValid) return;
       }
 
-      const x = Math.max(1, Math.min(98, parseFloat(item.xPercent) || 50));
-      const y = Math.max(1, Math.min(98, parseFloat(item.yPercent) || 50));
+      let rawX = parseFloat(item.xPercent ?? item.x_percent ?? item.x ?? item.left);
+      let rawY = parseFloat(item.yPercent ?? item.y_percent ?? item.y ?? item.top);
 
-      validated.push({
-        id: `ai_p${pageNumber}_${idx + 1}_${Date.now().toString(36)}`,
-        raw: cleanRaw,
-        xPercent: Math.round(x * 10) / 10,
-        yPercent: Math.round(y * 10) / 10,
+      // 相容 Gemini 原生 box_2d: [ymin, xmin, ymax, xmax]
+      if ((!Number.isFinite(rawX) || !Number.isFinite(rawY)) && Array.isArray(item.box_2d) && item.box_2d.length >= 4) {
+        const ymin = parseFloat(item.box_2d[0]);
+        const xmin = parseFloat(item.box_2d[1]);
+        const ymax = parseFloat(item.box_2d[2]);
+        const xmax = parseFloat(item.box_2d[3]);
+        if (Number.isFinite(xmin) && Number.isFinite(xmax)) rawX = (xmin + xmax) / 2;
+        if (Number.isFinite(ymin) && Number.isFinite(ymax)) rawY = (ymin + ymax) / 2;
+      }
+
+      if (Number.isFinite(rawX)) finiteCoords.push(rawX);
+      if (Number.isFinite(rawY)) finiteCoords.push(rawY);
+
+      candidates.push({
+        idx,
+        cleanRaw,
+        rawX,
+        rawY,
         line: parseInt(item.line, 10) || 1
       });
+    });
+
+    if (candidates.length === 0) return [];
+
+    // 第二階段：根據整頁最大座標值，自動判定模型使用的座標尺度 (0~100 vs 0~1000 vs 0~1 vs 像素尺寸)
+    const maxCoord = finiteCoords.length > 0 ? Math.max(...finiteCoords) : 100;
+    let scaleDivisor = 1;
+    if (maxCoord > 1005) {
+      // 像素座標 (對應壓縮後 1600px 畫布)
+      scaleDivisor = Math.max(16, maxCoord / 95);
+    } else if (maxCoord > 100) {
+      // Gemini 3 原生 0 ~ 1000 空間座標尺度 (例如 254 代表 25.4%)
+      scaleDivisor = 10;
+    } else if (maxCoord > 0 && maxCoord <= 1.05) {
+      // 0.0 ~ 1.0 正規化浮點數尺度 (例如 0.254 代表 25.4%)
+      scaleDivisor = 0.01;
+    }
+
+    const validated = candidates.map((c) => {
+      const normX = Number.isFinite(c.rawX) ? (c.rawX / scaleDivisor) : 50;
+      const normY = Number.isFinite(c.rawY) ? (c.rawY / scaleDivisor) : 50;
+      const x = Math.max(1, Math.min(98, normX));
+      const y = Math.max(1, Math.min(98, normY));
+
+      return {
+        id: `ai_p${pageNumber}_${c.idx + 1}_${Date.now().toString(36)}`,
+        raw: c.cleanRaw,
+        xPercent: Math.round(x * 10) / 10,
+        yPercent: Math.round(y * 10) / 10,
+        line: c.line
+      };
     });
 
     return validated;
@@ -780,21 +887,35 @@
       .replace(/\s*```$/i, '')
       .trim();
 
+    let parsed = null;
     try {
-      return JSON.parse(cleanedJsonStr);
+      parsed = JSON.parse(cleanedJsonStr);
     } catch (firstErr) {
-      // 若模型在 JSON 前後夾雜了額外字元，嘗試擷取最外層 { ... } 區段
+      // 若模型在 JSON 前後夾雜了額外字元，嘗試擷取最外層 { ... } 或 [ ... ] 區段
       const firstBrace = cleanedJsonStr.indexOf('{');
       const lastBrace = cleanedJsonStr.lastIndexOf('}');
       if (firstBrace !== -1 && lastBrace > firstBrace) {
         try {
-          return JSON.parse(cleanedJsonStr.slice(firstBrace, lastBrace + 1));
+          parsed = JSON.parse(cleanedJsonStr.slice(firstBrace, lastBrace + 1));
         } catch (secondErr) {
           // 繼續拋出下方標準錯誤
         }
       }
-      throw new Error('AI 回傳格式解析失敗，正自動重試或切換備援模型。');
+      if (!parsed) {
+        throw new Error('AI 回傳格式解析失敗，正自動重試或切換備援模型。');
+      }
     }
+
+    if (Array.isArray(parsed)) {
+      return { detectedSourceKey: null, detectedTargetKey: null, chords: parsed };
+    }
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed.chords)) {
+      const altArray = parsed.chordList || parsed.items || parsed.data || parsed.results;
+      if (Array.isArray(altArray)) {
+        parsed.chords = altArray;
+      }
+    }
+    return parsed;
   }
 
   /**
@@ -838,6 +959,7 @@
 
     let resultJson = null;
     let parsedObj = null;
+    let validChords = [];
     let lastError = null;
     let usedModel = model;
     const totalKeys = allKeys.length;
@@ -871,16 +993,19 @@
 
         try {
           const rawResponse = await callGeminiApiWithRetry(endpoint, payload, options);
-          // 於備援迴圈內直接驗證 JSON 解析是否有效，若格式截斷或空白可自動由下一個模型備援
-          parsedObj = extractAndParseResponseJson(rawResponse);
+          // 於備援迴圈內直接驗證 JSON 解析與座標正規化是否有效，若格式截斷、0 和弦或座標重疊異常，自動由下一個模型備援
+          const candidateParsed = extractAndParseResponseJson(rawResponse);
+          const candidateChords = sanitizeAndValidateChords(candidateParsed.chords || [], pageNumber);
+          if (candidateChords.length === 0 || isCoordinateCacheCorrupted(candidateChords)) {
+            throw new Error('AI 回傳和弦座標異常或為空，正自動切換備援模型重試。');
+          }
+          parsedObj = candidateParsed;
+          validChords = candidateChords;
           resultJson = rawResponse;
           // 成功後將 activeApiKeyIndex 推進至下一組 Key (Round-Robin 多頁分流)，
           // 讓第 1 頁、第 2 頁自動交替使用不同組 Key，徹底避免連續頁面撞上單一 Key 的每分鐘 RPM 限流
           activeApiKeyIndex = (currentKeyIndex + 1) % totalKeys;
           usedModel = currentModel;
-          if (currentModel !== model) {
-            setModelName(currentModel);
-          }
           break outerModelLoop;
         } catch (err) {
           if (err && err.name === 'AbortError') {
@@ -910,6 +1035,7 @@
                                             errMsg.includes('連線中斷') ||
                                             errMsg.includes('辨識逾時') ||
                                             errMsg.includes('格式解析失敗') ||
+                                            errMsg.includes('座標異常或為空') ||
                                             errMsg.includes('未回傳任何辨識文字');
 
           // 情況 A：當前 Key 觸發每分鐘 RPM 限流或每日額度已滿，且手邊有多組 Key ➔ 優先切換至下一組 API Key 分流！
@@ -925,13 +1051,13 @@
             continue;
           }
 
-          // 情況 B：當前模型伺服器塞車、斷線 (Failed to fetch / 503 / Timeout / 格式異常) 或停用 ➔ 直接跳出內層迴圈，秒切下一個暢通備援模型！
+          // 情況 B：當前模型伺服器塞車、斷線 (Failed to fetch / 503 / Timeout / 格式或座標異常) 或停用 ➔ 直接跳出內層迴圈，秒切下一個暢通備援模型！
           if (isHighDemandOrUnavailable && mIdx < candidateModels.length - 1) {
             const nextModel = candidateModels[mIdx + 1];
             if (typeof options.onRetry === 'function') {
               options.onRetry(
                 1, 1, 1,
-                `模型 ${currentModel} 連線繁忙或瞬斷，正自動切換至暢通備援模型 ${nextModel}`
+                `模型 ${currentModel} 連線繁忙或座標異常，正自動切換至暢通備援模型 ${nextModel}`
               );
             }
             await new Promise(resolve => setTimeout(resolve, 400));
@@ -963,8 +1089,6 @@
     // 記錄 Google API 官方回傳之精確 Token 消耗量 (usageMetadata)
     const usageMeta = resultJson?.usageMetadata || {};
     const tokenStats = recordTokenUsage(usageMeta);
-
-    const validChords = sanitizeAndValidateChords(parsedObj.chords || [], pageNumber);
 
     const finalData = {
       detectedSourceKey: parsedObj.detectedSourceKey || null,
@@ -1005,6 +1129,7 @@
     setModelName,
     getTokenUsageStats,
     recordTokenUsage,
+    isCoordinateCacheCorrupted,
     getCachedRecognition,
     saveCachedRecognition,
     hasBuiltInSampleCache,

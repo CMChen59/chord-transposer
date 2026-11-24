@@ -268,6 +268,27 @@ console.log(`  ✔ 預設模型 [${SheetParser.getModelName()}]、備援清單 [
     assert.strictEqual(resPage2.chords[1].raw, '57');
     console.log(`  ✔ 多頁 PDF 第 2 頁連續辨識容錯驗證通過：成功攔截格式異常並自動備援解析出第 2 頁共 ${resPage2.chords.length} 個和弦`);
 
+    // 驗證 Gemini 0~1000 空間座標自動正規化為 0~100%，以及舊版被壓在 98% 或 50% 的異常快取自動清除機制
+    const scaledChords = SheetParser.sanitizeAndValidateChords([
+      { raw: '6m', xPercent: 254, yPercent: 162, line: 1 },
+      { raw: '2m7', xPercent: 512, yPercent: 284, line: 2 },
+      { raw: '37', xPercent: 760, yPercent: 284, line: 2 }
+    ], 2);
+    assert.strictEqual(scaledChords[0].xPercent, 25.4, '0~1000 座標 254 應自動正規化為 25.4%');
+    assert.strictEqual(scaledChords[0].yPercent, 16.2, '0~1000 座標 162 應自動正規化為 16.2%');
+
+    const corrupted98 = Array.from({ length: 19 }, (_, idx) => ({
+      id: `bad_${idx}`,
+      raw: '6m',
+      xPercent: 98,
+      yPercent: 98,
+      line: 1
+    }));
+    assert.strictEqual(SheetParser.isCoordinateCacheCorrupted(corrupted98), true, '19 個被壓在 98% 的異常標籤應被判定為損毀快取');
+    SheetParser.saveCachedRecognition('corrupted_test.pdf', 2, { chords: corrupted98 });
+    assert.strictEqual(SheetParser.getCachedRecognition('corrupted_test.pdf', 2), null, '讀取損毀座標快取時應自動清除並回傳 null 以重新辨識');
+    console.log('  ✔ 0~1000 空間座標自動百分比正規化與異常堆疊快取 (98% / 50%) 自動清除驗證 100% 通過');
+
     console.log('\n🎉 所有測試案例 100% 通過！');
   } finally {
     global.fetch = origFetch;

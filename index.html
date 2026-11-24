@@ -161,6 +161,9 @@
             <button type="button" id="btnRunAiRecognize" class="btn btn-primary" disabled>
               AI 辨識全曲
             </button>
+            <button type="button" id="btnForceAiRecognize" class="btn" disabled title="強制呼叫 Gemini AI 重新辨識目前這一頁">
+              重辨識本頁
+            </button>
             <button type="button" id="btnCancelAiRecognize" class="btn btn-danger" style="display: none;" title="立即強制停止當前辨識">
               取消
             </button>
@@ -253,11 +256,8 @@
               <button type="button" id="btnResetPageChords" class="btn" style="padding: 4px 8px;" title="將本頁和弦與座標恢復為初始辨識狀態">重置座標</button>
             </div>
 
-            <!-- 重新辨識與專案檔存取 -->
+            <!-- 專案檔存取 -->
             <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-left: auto;">
-              <button type="button" id="btnForceAiRecognize" class="btn" disabled title="強制呼叫 Gemini AI 重新辨識本頁">
-                重辨識本頁
-              </button>
               <button type="button" id="btnExportProjectJson" class="btn" disabled title="將琴譜與微調好的座標存為 .json 專案檔，日後 0 Token 秒開">
                 存專案檔
               </button>
